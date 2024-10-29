@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ALGet Package Manager</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      header {
+        background-color: #0078d7;
+        color: white;
+        padding: 10px;
+        text-align: center;
+      }
+      .top-container {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+      }
+      .container {
+        display: flex;
+        flex: 1;
+      }
+      .sidebar {
+        width: 33%;
+        background-color: #f4f4f4;
+        padding: 10px;
+        border-left: 1px solid #ddd;
+        color: black;
+      }
+      .content {
+        flex: 1;
+        padding: 20px;
+      }
+      .tabs {
+        display: flex;
+        margin-bottom: 20px;
+      }
+      .tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        border: 1px solid #ddd;
+        border-bottom: none;
+        background-color: #f4f4f4;
+      }
+      body.vscode-dark {
+        .tab {
+          border: 1px solid #3d3d3d;
+          border-bottom: none;
+          background-color: #333;
+          color: white;
+        }
+      }
+      body.vscode-light {
+        .tab {
+          border: 1px solid #ddd;
+          border-bottom: none;
+          background-color: #f4f4f4;
+        }
+      }
+      .tab.active {
+        background-color: white;
+        border-bottom: 2px solid #0078d7 !important;
+      }
+      .search-bar input {
+        width: 300px;
+        padding: 5px;
+      }
+      .loading-spinner {
+        text-align: center;
+        font-size: xx-large;
+        color: #0078d7;
+      }
+      .package-list {
+        list-style: none;
+        padding: 0;
+        height: 75vh;
+        overflow-y: auto; /* Enable vertical scrolling */
+      }
+      .package-item {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        cursor: pointer;
+      }
+      .package-item:hover {
+        background-color: #f0f0f0;
+        color: black;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+
+      .loading-text {
+        margin-top: 5px;
+        -webkit-animation: loading-text 1s infinite alternate;
+        -moz-animation: loading-text 1s infinite alternate;
+        -ms-animation: loading-text 1s infinite alternate;
+        -o-animation: loading-text 1s infinite alternate;
+        animation: loading-text 1s infinite alternate;
+      }
+      @-webkit-keyframes loading-text {
+        from {
+          color: darkgray;
+        }
+        to {
+          color: black;
+        }
+      }
+      @-moz-keyframes loading-text {
+        from {
+          color: darkgray;
+        }
+        to {
+          color: black;
+        }
+      }
+      @-ms-keyframes loading-text {
+        from {
+          color: darkgray;
+        }
+        to {
+          color: black;
+        }
+      }
+      @-o-keyframes loading-text {
+        from {
+          color: darkgray;
+        }
+        to {
+          color: black;
+        }
+      }
+      @keyframes loading-text {
+        from {
+          color: darkgray;
+        }
+        to {
+          color: black;
+        }
+      }
+    </style>
+    <script
+      src="https://kit.fontawesome.com/f76ceefbc3.js"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div class="top-container">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        "
+      >
+        <div class="tabs">
+          <div class="tab active" id="browse-tab" data-tab="browse">Browse</div>
+          <div class="tab" id="installed-tab" data-tab="installed">
+            Installed
+          </div>
+          <div class="tab" id="updates-tab" data-tab="updates">
+            Updates <i class="fa-solid fa-spinner fa-spin"></i>
+          </div>
+        </div>
+        <div style="font-size: 1.2em; font-weight: bold">
+          ALGet Package Manager
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="search" placeholder="Search for packages..." />
+        <i
+          class="fa-solid fa-arrows-rotate"
+          style="margin-left: 5px; color: #0078d7; cursor: pointer"
+          id="refresh-browse"
+          onclick="refreshSearch()"
+        ></i>
+      </div>
+    </div>
+    <div class="container">
+      <div class="content">
+        <div class="tab-content active" id="browse">
+          <p>No packages found.</p>
+        </div>
+        <div class="tab-content" id="installed">
+          <p>No installed packages.</p>
+        </div>
+        <div class="tab-content" id="updates">
+          <p>No updates available.</p>
+        </div>
+      </div>
+      <div class="sidebar" id="sidebar">
+        <h3>Package Information</h3>
+        <p>Select a package to see details.</p>
+      </div>
+    </div>
+    <script>
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          selectTab(tab);
+        });
+      });
+
+      function selectTab(tab) {
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((tc) => tc.classList.remove("active"));
+
+        tab.classList.add("active");
+        document
+          .getElementById(tab.getAttribute("data-tab"))
+          .classList.add("active");
+      }
+
+      document.querySelectorAll(".package-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          const name = item.getAttribute("data-name");
+          const description = item.getAttribute("data-description");
+          const dependencies = item.getAttribute("data-dependencies");
+
+          document.getElementById("sidebar").innerHTML = `
+                    <h3>${name}</h3>
+                    <p>${description}</p>
+                    <p><strong>Dependencies:</strong> ${dependencies}</p>
+                `;
+        });
+      });
+
+      const vscode = acquireVsCodeApi();
+      const NuGetIconPath = "<<NUGET_ICON>>";
+      const MicrosoftIconPath = "<<MICROSOFT_ICON>>";
+
+      function initPackageList(tab) {
+        const packageListContainer = document.getElementById(tab);
+        if (!packageListContainer) return;
+
+        packageListContainer.innerHTML = `<div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+
+        return packageListContainer;
+      }
+
+      function clearPackageList(tab) {
+        const packageList = document.getElementById(`${tab}-package-list`);
+        packageList.innerHTML = "";
+      }
+
+      function appendPackageItem(tab, packageData) {
+        const packageListContainer = document.getElementById(tab);
+        if (!packageListContainer) return;
+
+        if (!document.getElementById(`${tab}-package-list`)) {
+          packageListContainer.innerHTML = "";
+
+          let packageList = document.createElement("ul");
+          packageList.className = "package-list";
+          packageList.id = `${tab}-package-list`;
+          packageListContainer.appendChild(packageList);
+        }
+
+        let packageList = document.getElementById(`${tab}-package-list`);
+        packageList.appendChild(createPackageItem(packageData));
+      }
+
+      function createPackageItem(packageData) {
+        const li = document.createElement("li");
+        li.className = "package-item";
+
+        // Set attributes dynamically based on the packageData properties
+        for (const key in packageData) {
+          if (packageData.hasOwnProperty(key) && key.indexOf("@") === -1) {
+            li.setAttribute(`data-${key}`, packageData[key]);
+          }
+        }
+
+        // TODO: Read icon url from package metadata
+        packageData.IconPath = NuGetIconPath;
+        if (packageData.Publisher === "Microsoft") {
+          packageData.IconPath = MicrosoftIconPath;
+        }
+
+        // Create the inner HTML dynamically
+        let innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center">
+              <img src="${packageData.IconPath}" alt="${
+          packageData.Name
+        } Icon" style="width: 20px; height: 20px; margin-right: 10px" />
+              <div>
+                <h4 style="margin: 0">
+                  ${packageData.Name}
+                  <span style="margin-left: 5px; font-size: smaller; font-weight: normal;">by ${
+                    packageData.Publisher
+                  }</span>
+                    ${
+                      packageData.UpdateVersion !== undefined
+                        ? `<span id="updateVersion-${packageData.PackageID}"><i onclick="invokePackageUpdate('${packageData.PackageID}', '${packageData.UpdateVersion}')" class="fa-solid fa-arrow-up" style="margin-left: 10px; color: #0078d7;" title="${packageData.UpdateVersion} available for update"></i></span>`
+                        : ""
+                    }
+                  ${
+                    packageData.CountryCode !== ""
+                      ? `<div style="font-size: smaller; font-weight: normal;">Localization: ${packageData.CountryCode}</div>`
+                      : ""
+                  }
+                </h4>
+                <p style="margin: 0">${
+                  packageData.Description == undefined
+                    ? "&nbsp;"
+                    : packageData.Description
+                }</p>
+              </div>
+            </div>
+            <span style="font-size: 0.9em; color: #888">v${
+              packageData.Version
+            }</span>
+          </div>
+        `;
+
+        li.innerHTML = innerHTML;
+
+        li.addEventListener("click", () => {
+          createPackageItemDetailsView(packageData);
+        });
+
+        function createPackageItemDetailsView(packageData) {
+          let sidebarContent = `<h3>
+            <div><img src="${packageData.IconPath}" alt="${packageData.Name} Icon" style="width: 40px; height: 40px; margin-right: 10px" /></div>
+            <div>${packageData.Name}<br><span style="font-size: smaller; font-weight: normal; color: #777;">by ${packageData.Publisher}</span></div>
+          </h3>`;
+          if (packageData.UpdateVersion !== undefined) {
+            sidebarContent += `<div style="background-color: #0078d7; color: #fff; display: flex; justify-content: space-between; align-items: center; padding: 5px;">
+              <div>
+              <strong>New version available for package</strong><br>
+              Version: ${packageData.UpdateVersion}
+              </div>
+              <i class="fa-solid fa-arrow-up" style="cursor: pointer; margin-right: 10px; padding: 5px; border: 1px solid #eee; border-radius: 5px; color: #0078d7; background-color: #fff;" onclick="invokePackageUpdate('${packageData.PackageID}', '${packageData.UpdateVersion}')" title="Update to ${packageData.UpdateVersion}"></i>
+            </div>`;
+          }
+
+          if (
+            packageData.PackageMetadata &&
+            packageData.PackageMetadata.versions
+          ) {
+            sidebarContent += `<p><strong style="width: 100px; display: inline-block;">Versions:</strong><select>`;
+            packageData.PackageMetadata.versions.forEach((version) => {
+              sidebarContent += `<option value="${version.version}" ${
+                version.version === packageData.version ? "selected" : ""
+              }>${version.version}</option>`;
+            });
+            sidebarContent += `</select>`;
+            sidebarContent += `<button style="margin-left: 10px; padding: 3px 15px; background-color: #0078d7; color: white; border: none; cursor: pointer;" onclick="invokePackageUpdate('${packageData.PackageID}', document.querySelector('select').value)" >
+              <i class="fa-solid fa-download"></i> Download
+            </button></p>`;
+            sidebarContent += "<hr>";
+          }
+
+          if (packageData.Description) {
+            sidebarContent += `<p><strong>Description</strong><br>${packageData.Description}</p>`;
+          }
+
+          sidebarContent += '<table style="border: 0px;">';
+          if (packageData.Version) {
+            sidebarContent += `<tr><td style="width: 100px;"><strong>Version:</strong></td><td>${packageData.Version}</td></tr>`;
+          }
+          if (packageData.CountryCode) {
+            sidebarContent += `<tr><td><strong>Country Code:</strong></td><td>${packageData.CountryCode}</td></tr>`;
+          }
+          if (packageData.Publisher) {
+            sidebarContent += `<tr><td><strong>Publisher:</strong></td><td>${packageData.Publisher}</td></tr>`;
+          }
+          if (packageData.ID) {
+            sidebarContent += `<tr><td><strong>ID:</strong></td><td>${packageData.ID}</td></tr>`;
+          }
+          if (packageData.PackageID) {
+            sidebarContent += `<tr><td><strong>Package ID:</strong></td><td>${packageData.PackageID}</td></tr>`;
+          }
+          sidebarContent += "</table>";
+
+          sidebarContent += `<p id="package-dependencies"><strong>Dependencies:</strong><br><span class="loading-text">Loading package dependencies...</span></p>`;
+
+          document.getElementById("sidebar").innerHTML = sidebarContent;
+          invokeLoadPackageItemDependencies(packageData); // Load package dependencies
+        }
+
+        return li;
+      }
+
+      document.getElementById("search").addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+
+        refreshSearch();
+      });
+
+      // Handle the message from VSCode extension to webview
+      window.addEventListener("message", (event) => {
+        const message = event.data; // The JSON data our extension sent
+        console.log("Received command", message.command);
+        switch (message.command) {
+          case "project":
+            console.log("Project init received");
+            message.data.packages.forEach((packageData) => {
+              appendPackageItem("installed", packageData);
+            });
+            break;
+          case "initPackageList":
+            initPackageList(message.data);
+            break;
+          case "update":
+            let updateTab = document.getElementById("updates-tab");
+            if (message.data.length == 0) {
+              updateTab.innerText = "Updates";
+              document.getElementById("updates").innerHTML =
+                "<p>No updates available.</p>";
+            } else {
+              updateTab.innerHTML = `Updates <span style="background-color: #0078d7; padding:2px; padding-left: 5px; padding-right: 5px; color: #fff;">${message.data.length}</span>`;
+              message.data.forEach((packageData) => {
+                appendPackageItem("updates", packageData);
+              });
+            }
+            break;
+          case "packages":
+            if (message.data.length == 0) {
+              document.getElementById("browse").innerHTML =
+                "<p>No packages found.</p>";
+            } else {
+              message.data.forEach((packageData) => {
+                appendPackageItem("browse", packageData);
+              });
+            }
+            break;
+          case "package-dependencies":
+            if (message.data.length == 0) {
+              document.getElementById("package-dependencies").innerHTML =
+                "<strong>Dependencies:</strong><br><ul>None</ul>";
+            } else {
+              let dependencies = "<ul>";
+              message.data.forEach((dependency) => {
+                dependencies += `<li>${dependency.ID} (${dependency.Version})</li>`;
+              });
+              dependencies += "</ul>";
+              document.getElementById(
+                "package-dependencies"
+              ).innerHTML = `<strong>Dependencies:</strong> ${dependencies}`;
+            }
+            break;
+        }
+      });
+
+      function refreshSearch() {
+        let browseTab = document.getElementById("browse-tab");
+        selectTab(browseTab);
+
+        const searchText = document.getElementById("search").value;
+        vscode.postMessage({
+          command: "search-packages",
+          data: searchText,
+        });
+      }
+
+      function invokePackageUpdate(packageId, version = null) {
+        if (version === null) version = "latest";
+        console.log(`Updating package ${packageId} to version ${version}`);
+
+        vscode.postMessage({
+          command: "add-package",
+          packageId: packageId,
+          packageVersion: version,
+        });
+      }
+
+      function invokeLoadPackageItemDependencies(packageData) {
+        console.log(
+          `Retrieve package dependencies for ${packageData.Name} version ${packageData.Version}`
+        );
+
+        vscode.postMessage({
+          command: "get-package-dependencies",
+          packageId: packageData.PackageID,
+          packageVersion: packageData.Version,
+        });
+      }
+    </script>
+  </body>
+</html>

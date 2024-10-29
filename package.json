@@ -1,0 +1,110 @@
+{
+  "name": "365businessdev.alget",
+  "displayName": "ALGet",
+  "description": "NuGet package manager for Microsoft Dynamics 365 Business Central AL development.",
+  "version": "0.0.1",
+  "preview": true,
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "author": {
+    "name": "Christoph Krieg",
+    "email": "info@365businessdev.com",
+    "url": "https://365businessdev.com"
+  },
+  "license": "MIT",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "dynamics",
+    "dynamics 365",
+    "dynamics 365 business central",
+    "business central",
+    "al",
+    "al language",
+    "nuget",
+    "symbol",
+    "package",
+    "package manager",
+    "extension",
+    "app"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "365businessdev.alget.managePackages",
+        "title": "Manage Packages"
+      },
+      {
+        "command": "365businessdev.alget.managePackagesFromCmdPalette",
+        "title": "ALGet: Manage Packages"
+      },
+      {
+        "command": "365businessdev.alget.helloWorld",
+        "title": "ALGet: Hello World"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "365businessdev.alget.managePackagesFromCmdPalette"
+        },
+        {
+          "command": "365businessdev.alget.managePackages",
+          "when": "false"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "resourceFilename == app.json",
+          "command": "365businessdev.alget.managePackages",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": [
+      {
+        "title": "ALGet",
+        "properties": {
+          "365businessdev.alget.countryCode": {
+            "type": "string",
+            "default": "w1",
+            "description": "Country code to be used for localized NuGet packages."
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.8",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.94.0",
+    "@typescript-eslint/eslint-plugin": "^8.7.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.11.1",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.6.2",
+    "webpack": "^5.95.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "xml2js": "^0.6.2"
+  }
+}
