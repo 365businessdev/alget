@@ -27,16 +27,29 @@ export async function RestoreNuGetPackages() {
             success = success && await restorePackagesFromWorkspaceFolder(folder);
         }
         if (success) {
-            vscode.workspace.workspaceFolders.forEach((folder) => {
-                const manifestPath = path.join(folder.uri.fsPath, 'app.json');
-                if (!fs.existsSync(manifestPath)) {
-                    output.log('Touch manifest file to invoke AL language extension to reload.');
-                    alManifest.touchManifestFile(manifestPath);
-                }
-            });
+            // vscode.workspace.workspaceFolders.forEach((folder) => {
+            //     const manifestPath = path.join(folder.uri.fsPath, 'app.json');
+            //     if (!fs.existsSync(manifestPath)) {
+            //         output.log('Touch manifest file to invoke AL language extension to reload.');
+            //         alManifest.touchManifestFile(manifestPath);
+            //     }
+            // });
 
-            vscode.window.showInformationMessage('Packages restored successfully.');
             output.log('Packages restored successfully.');
+
+            // Restart AL language extension
+            const alExtension = vscode.extensions.getExtension('ms-dynamics-smb.al');
+            if (alExtension) {
+                await alExtension.activate();
+                vscode.window.showInformationMessage(`Packages restored successfully. Please reload the window to apply changes.`, 'Reload')
+                    .then(selection => {
+                        if (selection === 'Reload') {
+                            vscode.commands.executeCommand('workbench.action.reloadWindow');
+                        }
+                    });
+            } else {
+                output.log('AL language extension is not installed.');
+            }
         } else {
             vscode.window.showWarningMessage('Restoring packages failed. Some or all packages could not be restored. Please check the output for more information.');
             output.log('Some or all packages could not be restored. Please check the output for more information.');
