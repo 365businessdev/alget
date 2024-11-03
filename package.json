@@ -43,8 +43,12 @@
         "title": "ALGet: Manage Packages"
       },
       {
-        "command": "365businessdev.alget.restore",
+        "command": "365businessdev.alget.restorePackages",
         "title": "ALGet: Restore NuGet Packages"
+      },
+      {
+        "command": "365businessdev.alget.updatePackages",
+        "title": "ALGet: Update NuGet Packages"
       }
     ],
     "menus": {
