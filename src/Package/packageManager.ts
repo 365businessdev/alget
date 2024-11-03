@@ -119,25 +119,44 @@ class PackageManager {
         if (!pkgMetadata[0].PackageMetadata!.versions) {
           packageVersion = pkgMetadata[0].Version;
         } else {
-          // TODO: NuGet version range handling, see https://learn.microsoft.com/en-us/nuget/concepts/package-versioning?tabs=semver20sort#version-ranges
-          // const semver = require('semver');
-          // const versions = pkgMetadata[0].PackageMetadata!.versions;
-
-          // const validVersions = versions.filter((version: Versions) => semver.satisfies(version.version, packageVersion!));
-          // if (validVersions.length === 0) {
-          //   packageVersion = pkgMetadata[0].Version;
-          // }
-
-          // packageVersion = validVersions.sort(semver.rcompare)[0].version;
-          const versions = pkgMetadata[0].PackageMetadata!.versions;
-          const minVersion = packageVersion.split(",")[0].replace("[", "");
-          const maxVersion = packageVersion.split(",")[1].replace(")", "");
-
-          const validVersions = versions.filter((version: Versions) => version.version >= minVersion && version.version < maxVersion);
-          if (validVersions.length === 0) {
+          const packageMetadataVersions = pkgMetadata[0].PackageMetadata!.versions;
+          const versionRange = this.parseVersionRange(packageVersion);
+          if (versionRange === null) {
             packageVersion = pkgMetadata[0].Version;
           } else {
-            packageVersion = validVersions.sort((a: Versions, b: Versions) => a.version.localeCompare(b.version))[0].version;
+            let validVersions: Versions[] = [];
+
+            switch (true) {
+              case ((versionRange.minVersion === versionRange.maxVersion) && (versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
+                validVersions = packageMetadataVersions.filter((version: Versions) => version.version === versionRange.minVersion);
+                break;
+              case ((versionRange.minVersion === versionRange.maxVersion) && (versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
+                validVersions = packageMetadataVersions.filter((version: Versions) => version.version > versionRange.minVersion);
+                break;
+              case ((versionRange.minVersion === versionRange.maxVersion) && (!versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
+                validVersions = packageMetadataVersions.filter((version: Versions) => version.version < versionRange.minVersion);
+                break;
+              case ((versionRange.minVersion === versionRange.maxVersion) && (!versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
+                validVersions = packageMetadataVersions.filter((version: Versions) => version.version !== versionRange.minVersion);
+                break;
+              case ((versionRange.minVersion !== versionRange.maxVersion) && (versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
+                validVersions = packageMetadataVersions.filter((version: Versions) => version.version >= versionRange.minVersion && version.version <= versionRange.maxVersion);
+                break;
+              case ((versionRange.minVersion !== versionRange.maxVersion) && (versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
+                validVersions = packageMetadataVersions.filter((version: Versions) => version.version >= versionRange.minVersion && version.version < versionRange.maxVersion);
+                break;
+              case ((versionRange.minVersion !== versionRange.maxVersion) && (!versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
+                validVersions = packageMetadataVersions.filter((version: Versions) => version.version > versionRange.minVersion && version.version <= versionRange.maxVersion);
+                break;
+              case ((versionRange.minVersion !== versionRange.maxVersion) && (!versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
+                validVersions = packageMetadataVersions.filter((version: Versions) => version.version > versionRange.minVersion && version.version < versionRange.maxVersion);
+                break;
+            }            
+            if (validVersions.length === 0) {
+              packageVersion = pkgMetadata[0].Version;
+            } else {
+              packageVersion = validVersions.sort((a: Versions, b: Versions) => a.version.localeCompare(b.version))[0].version;
+            }
           }
         }
       } else {
@@ -305,6 +324,40 @@ class PackageManager {
     console.log("Listing all packages");
     // Implementation for listing all packages
   }
+
+  parseVersionRange(range: string): VersionRange | null {
+    // Handle exact version
+    if (/^\[\d+\.\d+(\.\d+)?(\.\d+)?\]$/.test(range)) {
+      return {
+        minVersion: range,
+        maxVersion: range,
+        isMinInclusive: true,
+        isMaxInclusive: true
+      };
+    }
+  
+    // Handle ranges with brackets and parentheses
+    const rangeRegex = /^[\[\(](.*?),(.*?)[\]\)]$/;
+    const match = range.match(rangeRegex);
+  
+    if (!match) {
+      return null;
+    }
+  
+    return {
+      minVersion: match[1].trim(),
+      maxVersion: match[2].trim(),
+      isMinInclusive: range.startsWith('['),
+      isMaxInclusive: range.endsWith(']')
+    };
+  }
 }
 
 export default PackageManager;
+
+export interface VersionRange {
+  minVersion: string;
+  maxVersion: string;
+  isMinInclusive: boolean;
+  isMaxInclusive: boolean;
+}
