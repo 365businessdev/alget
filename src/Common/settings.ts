@@ -61,6 +61,34 @@ export function getCountryCode(): string {
 }
 
 /// <summary>
+/// Specifies whether the Microsoft Symbols feed is enabled.
+/// </summary>
+export function isMSSymbolsFeedEnabled(): boolean {
+    const configuration = vscode.workspace.getConfiguration(ExtensionName);
+
+    try {
+        return configuration["enableMSSymbolsFeed"];
+    } catch (error) {
+        vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
+        return false;
+    }
+}
+
+/// <summary>
+/// Specifies whether the AppSource Symbols feed is enabled.
+/// </summary>
+export function isAppSourceSymbolsFeedEnabled(): boolean {
+    const configuration = vscode.workspace.getConfiguration(ExtensionName);
+
+    try {
+        return configuration["enableAppSourceSymbolsFeed"];
+    } catch (error) {
+        vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
+        return false;
+    }
+}
+
+/// <summary>
 /// Returns the custom feeds from the settings.
 /// </summary>
 export function getCustomFeeds(): any[] {

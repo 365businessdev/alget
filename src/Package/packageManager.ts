@@ -31,29 +31,35 @@ class PackageManager {
 
     output.log("Loading packages from feeds");
 
-    output.log(
-      `Fetching packages from '${settings.MSSymbolsFeedUrl}' feed url`
-    );
-    let packages: Package[] = await fetchPackagesFromFeed(
-      settings.MSSymbolsFeedName,
-      settings.MSSymbolsFeedUrl,
-      filterString === undefined ? `.${settings.getCountryCode().toUpperCase() || ""}.` : filterString,
-      false
-    );
-    output.log(`${packages.length} packages received from feed`);
-    this.packages.push(...packages);
+    let pkgs: Package[] = [];
 
-    output.log(
-      `Fetching packages from '${settings.AppSourceSymbolsFeedUrl}' feed url`
-    );
-    packages = await fetchPackagesFromFeed(
-      settings.AppSourceSymbolsFeedName,
-      settings.AppSourceSymbolsFeedUrl,
-      filterString === undefined ? "" : filterString,
-      false
-    );
-    output.log(`${packages.length} packages received from feed`);
-    this.packages.push(...packages);
+    if (settings.isMSSymbolsFeedEnabled()) {
+      output.log(
+        `Fetching packages from '${settings.MSSymbolsFeedUrl}' feed url`
+      );
+      pkgs = await fetchPackagesFromFeed(
+        settings.MSSymbolsFeedName,
+        settings.MSSymbolsFeedUrl,
+        filterString === undefined ? `.${settings.getCountryCode().toUpperCase() || ""}.` : filterString,
+        false
+      );
+      output.log(`${pkgs.length} packages received from feed`);
+      this.packages.push(...pkgs);
+    }
+
+    if (settings.isAppSourceSymbolsFeedEnabled()) {
+      output.log(
+        `Fetching packages from '${settings.AppSourceSymbolsFeedUrl}' feed url`
+      );
+      pkgs = await fetchPackagesFromFeed(
+        settings.AppSourceSymbolsFeedName,
+        settings.AppSourceSymbolsFeedUrl,
+        filterString === undefined ? "" : filterString,
+        false
+      );
+      output.log(`${pkgs.length} packages received from feed`);
+      this.packages.push(...pkgs);
+    }
 
     this.packages.push(...await this.loadPackagesFromCustomFeeds(filterString));
 
@@ -69,13 +75,14 @@ class PackageManager {
     const customFeeds = settings.getCustomFeeds();
     for (const feed of customFeeds) {
       output.log(`Fetching packages from '${feed.url}' feed url`);
-      const feedPackages = await fetchPackagesFromFeed(
+      const pkgs = await fetchPackagesFromFeed(
         feed.name,
         feed.url,
         filterString === undefined ? "" : filterString,
         false
       );
-      packages.push(...feedPackages);
+      output.log(`${pkgs.length} packages received from feed`);
+      packages.push(...pkgs);
     }
 
     return packages;
