@@ -16,6 +16,7 @@ export class NuSpec {
     copyright?: string;
     tags?: string;
     dependencies?: Dependency[];
+    versions?: Versions[];
 
     constructor(
         id: string,
@@ -58,4 +59,10 @@ export class Dependency {
         this.id = id;
         this.version = version;
     }
+}
+
+export interface Versions {
+    id: string;
+    downloads: number;
+    version: string;
 }
