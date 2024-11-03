@@ -1,13 +1,15 @@
 import * as vscode from 'vscode';
+import * as workspaceSelection from "../UI/workspaceSelection";
 import * as output from '../output';
 import * as alManifest from '../Common/manifest';
 import path from 'path';
+import PackageManager from '../Package/packageManager';
 import fs = require('fs');
 
 /// <summary>
 /// Restores the NuGet packages in the workspace.
 /// </summary>
-export function restore() {
+export async function RestoreNuGetPackages() {
     output.clearOutput();
 
     if (vscode.workspace.workspaceFolders === undefined) {
@@ -21,21 +23,33 @@ export function restore() {
     try
     {   
         let success: boolean = true;
-        vscode.workspace.workspaceFolders.forEach(folder => {
-            success = ((success) && (restorePackagesFromWorkspaceFolder(folder)));
-        });
-
+        for (const folder of vscode.workspace.workspaceFolders) {
+            success = success && await restorePackagesFromWorkspaceFolder(folder);
+        }
         if (success) {
-            output.log('Packages restored.');
+            vscode.workspace.workspaceFolders.forEach((folder) => {
+                const manifestPath = path.join(folder.uri.fsPath, 'app.json');
+                if (!fs.existsSync(manifestPath)) {
+                    output.log('Touch manifest file to invoke AL language extension to reload.');
+                    alManifest.touchManifestFile(manifestPath);
+                }
+            });
+
+            vscode.window.showInformationMessage('Packages restored successfully.');
+            output.log('Packages restored successfully.');
         } else {
-            output.log('Some packages could not be restored. See the output for more information.');
+            vscode.window.showWarningMessage('Restoring packages failed. Some or all packages could not be restored. Please check the output for more information.');
+            output.log('Some or all packages could not be restored. Please check the output for more information.');
         }
     } catch (error: any) {
         output.log(error.message);
     }
 }
 
-function restorePackagesFromWorkspaceFolder(folder: vscode.WorkspaceFolder) : boolean {
+/// <summary>
+/// Restores the NuGet packages in the workspace folder.
+/// </summary>
+async function restorePackagesFromWorkspaceFolder(folder: vscode.WorkspaceFolder) : Promise<boolean> {
     let workspacePath = folder.uri.fsPath;
     output.log(`Restoring packages in ${workspacePath}...`);
 
@@ -48,9 +62,17 @@ function restorePackagesFromWorkspaceFolder(folder: vscode.WorkspaceFolder) : bo
 
     output.log(`Reading AL project manifest from ${manifestPath}...`);
     try 
-    {
-        const manifest = fs.readFileSync(manifestPath, 'utf8');
-        alManifest.getPackageCacheFromManifest(manifestPath, manifest);
+    {        
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        await alManifest.getPackageCacheFromManifest(manifestPath, manifest).then(async (packages) => {
+            const pkgsToRestore = packages.filter((pkg) => (pkg.PackageID !== null) && (!pkg.IsInstalled) && (pkg.Source.name !== "Local"));
+            await pkgsToRestore.forEach(async (pkg) => {
+                    output.log(`Restoring package ${pkg.Name} (ID: ${pkg.PackageID}) version ${pkg.Version} or newer...`);
+                    // Restore the package
+                    const packageManager = new PackageManager(workspaceSelection.getWorkspaceFolderFromManifest(vscode.Uri.file(manifestPath))!);
+                    await packageManager.install(pkg.PackageID!, undefined);
+            });
+        });
     } catch (error: any) {
         output.log(`Error reading AL project manifest: ${error.message}`);
 

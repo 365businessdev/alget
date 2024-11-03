@@ -1,8 +1,8 @@
 import { NuSpec } from "./nuspec";
 import { PackageSource } from "./package-source";
-import * as output from "../output";
-import { fetchPackagesFromFeed } from "../NuGet/fetchPackages";
-import * as settings from "../Common/settings"; // Add this line to import settings
+import * as vscode from 'vscode';
+import fs = require("fs");
+import path from "path";
 
 /// <summary>
 /// Represents a AL package.
@@ -17,6 +17,11 @@ export class Package {
     /// Application ID.
     /// </summary>
     public ID: string | null;
+
+    /// <summary>
+    /// Flag indicating if the package is installed.
+    /// </summary>
+    public IsInstalled: boolean = false;
 
     /// <summary>
     /// Minimum required version of the package.
@@ -73,7 +78,8 @@ export class Package {
         Publisher: string,
         CountryCode: string,
         Source: PackageSource,
-        PackageMetadata: NuSpec | null = null
+        PackageMetadata: NuSpec | null = null,
+        alPackagesPath: string = ""
     ) {
         if (PackageID === null) {
             PackageID = `${Publisher}.${Name}.symbols.${ID}`.replaceAll(" ", "");
@@ -95,5 +101,60 @@ export class Package {
         this.CountryCode = CountryCode;
         this.Source = Source;
         this.PackageMetadata = PackageMetadata;
+
+        this.tryFindPackageInALPackagesPath(alPackagesPath);
+    }
+
+    private tryFindPackageInALPackagesPath(alPackagesPath: string) {
+        if (alPackagesPath === "") {
+            return;
+        }
+
+        this.Version = this.MinimumVersion || "0.0.0.0";
+
+        let searchFileName = `${this.Publisher}_${this.Name}`;
+        if ((this.Publisher === "Microsoft") && (this.Name === "Platform")) {
+            searchFileName = `${this.Publisher}_System_`;
+        }
+
+        try {
+            fs.readdirSync(alPackagesPath).forEach((file) => {
+                if (
+                    file
+                        .toLowerCase()
+                        .startsWith(searchFileName.toLowerCase())
+                ) {
+                    this.Version = file.split("_")[2].replaceAll(".app", "");
+                    this.IsInstalled = true;
+
+                    return;
+                }
+            });
+        } catch (error) {
+            console.log(error);
+        }
+
+        // lookup in the VS Code workspace
+        this.tryFindPackageInVSCodeWorkspace();
+    }
+
+    private tryFindPackageInVSCodeWorkspace() {
+        if (vscode.workspace.workspaceFolders === undefined) {
+            return;
+        }
+
+        for (const folder of vscode.workspace.workspaceFolders) {
+            const manifestPath = path.join(folder.uri.fsPath, "app.json");
+            if (!fs.existsSync(manifestPath)) {
+                continue;
+            }
+            const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+            if (manifest.id === this.ID) {
+                this.IsInstalled = true;
+                this.Version = manifest.version;
+
+                return;
+            }
+        }
     }
 }

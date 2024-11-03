@@ -245,6 +245,8 @@
         const packageListContainer = document.getElementById(tab);
         if (!packageListContainer) return;
 
+        initPackageItemDetailsView();
+
         packageListContainer.innerHTML = `<div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
 
         return packageListContainer;
@@ -253,6 +255,13 @@
       function clearPackageList(tab) {
         const packageList = document.getElementById(`${tab}-package-list`);
         packageList.innerHTML = "";
+      }
+
+      function initPackageItemDetailsView() {
+        document.getElementById("sidebar").innerHTML = `
+          <h3>Package Information</h3>
+          <p>Select a package to see details.</p>
+        `;
       }
 
       function appendPackageItem(tab, packageData) {
@@ -289,24 +298,25 @@
           packageData.IconPath = MicrosoftIconPath;
         }
 
+        let elementAction = "";
+        if (packageData.IsInstalled) {
+          elementAction = packageData.UpdateVersion !== undefined ? `<span id="updateVersion-${packageData.PackageID}"><i onclick="invokePackageUpdate('${packageData.PackageID}', '${packageData.UpdateVersion}')" class="fa-solid fa-arrow-up" style="margin-left: 10px; color: #0078d7;" title="${packageData.UpdateVersion} available for update"></i></span>` : "";
+        } else {
+          elementAction = packageData.UpdateVersion !== undefined ? `<span id="updateVersion-${packageData.PackageID}"><i onclick="invokePackageUpdate('${packageData.PackageID}', '${packageData.UpdateVersion}')" class="fa-solid fa-download" style="margin-left: 10px; color: #0078d7;" title="Install app version ${packageData.UpdateVersion}"></i></span>` : "";
+        }
+
         // Create the inner HTML dynamically
         let innerHTML = `
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; align-items: center">
-              <img src="${packageData.IconPath}" alt="${
-          packageData.Name
-        } Icon" style="width: 20px; height: 20px; margin-right: 10px" />
+              <img src="${packageData.IconPath}" alt="${packageData.Name} Icon" style="width: 20px; height: 20px; margin-right: 10px" />
               <div>
                 <h4 style="margin: 0">
                   ${packageData.Name}
                   <span style="margin-left: 5px; font-size: smaller; font-weight: normal;">by ${
                     packageData.Publisher
                   }</span>
-                    ${
-                      packageData.UpdateVersion !== undefined
-                        ? `<span id="updateVersion-${packageData.PackageID}"><i onclick="invokePackageUpdate('${packageData.PackageID}', '${packageData.UpdateVersion}')" class="fa-solid fa-arrow-up" style="margin-left: 10px; color: #0078d7;" title="${packageData.UpdateVersion} available for update"></i></span>`
-                        : ""
-                    }
+                    ${ elementAction}
                   ${
                     packageData.CountryCode !== ""
                       ? `<div style="font-size: smaller; font-weight: normal;">Localization: ${packageData.CountryCode}</div>`
@@ -332,12 +342,17 @@
           createPackageItemDetailsView(packageData);
         });
 
+        console.log(packageData.Source);
+
         function createPackageItemDetailsView(packageData) {
-          let sidebarContent = `<h3>
-            <div><img src="${packageData.IconPath}" alt="${packageData.Name} Icon" style="width: 40px; height: 40px; margin-right: 10px" /></div>
-            <div>${packageData.Name}<br><span style="font-size: smaller; font-weight: normal; color: #777;">by ${packageData.Publisher}</span></div>
-          </h3>`;
-          if (packageData.UpdateVersion !== undefined) {
+            let sidebarContent = `<h3>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="width: 50px;"><img src="${packageData.IconPath}" alt="${packageData.Name} Icon" style="width: 40px; height: 40px; margin-right: 10px" /></div>
+              <div style="flex: 1;">${packageData.Name}<br><span style="font-size: smaller; font-weight: normal; color: #777;">by ${packageData.Publisher}</span></div>
+              <div style="width: 150px; font-size: smaller; font-weight: normal; color: #777; text-align: right;">${packageData.Source.name !== "Local" ? `<a href="${packageData.Source.url}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> ${packageData.Source.name}</a>` : "" } </div>
+            </div>
+            </h3>`;
+          if ((packageData.UpdateVersion !== undefined) && (packageData.IsInstalled)) {
             sidebarContent += `<div style="background-color: #0078d7; color: #fff; display: flex; justify-content: space-between; align-items: center; padding: 5px;">
               <div>
               <strong>New version available for package</strong><br>
@@ -369,7 +384,7 @@
           }
 
           sidebarContent += '<table style="border: 0px;">';
-          if (packageData.Version) {
+          if ((packageData.Version) && (packageData.IsInstalled)) {
             sidebarContent += `<tr><td style="width: 100px;"><strong>Version:</strong></td><td>${packageData.Version}</td></tr>`;
           }
           if (packageData.CountryCode) {
@@ -407,10 +422,20 @@
         console.log("Received command", message.command);
         switch (message.command) {
           case "project":
-            console.log("Project init received");
-            message.data.packages.forEach((packageData) => {
-              appendPackageItem("installed", packageData);
-            });
+            let installedTab = document.getElementById("installed-tab");
+            if (message.data.length == 0) {
+              installedTab.innerText = "Installed";
+              document.getElementById("installed").innerHTML =
+                "<p>No packages available.</p>";
+            } else {
+              let notInstalledCount = message.data.packages.filter(pkg => !pkg.IsInstalled).length;
+              if (notInstalledCount > 0) {
+                installedTab.innerHTML = `Installed <span style="background-color: #0078d7; padding:2px; padding-left: 5px; padding-right: 5px; color: #fff;">${notInstalledCount}</span>`;
+              }
+              message.data.packages.forEach((packageData) => {
+                appendPackageItem("installed", packageData);
+              });
+            }
             break;
           case "initPackageList":
             initPackageList(message.data);
@@ -479,14 +504,19 @@
       }
 
       function invokeLoadPackageItemDependencies(packageData) {
+        let packageVersion = packageData.Version;
+        if (packageData.UpdateVersion !== undefined) {
+          packageVersion = packageData.UpdateVersion;
+        }
+
         console.log(
-          `Retrieve package dependencies for ${packageData.Name} version ${packageData.Version}`
+          `Retrieve package dependencies for ${packageData.Name} version ${packageVersion}`
         );
 
         vscode.postMessage({
           command: "get-package-dependencies",
           packageId: packageData.PackageID,
-          packageVersion: packageData.Version,
+          packageVersion: packageVersion,
         });
       }
     </script>

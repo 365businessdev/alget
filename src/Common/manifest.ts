@@ -5,6 +5,74 @@ import { Package } from "../Models/package";
 import * as output from "../output";
 import { fetchPackagesFromFeed } from "../NuGet/fetchPackages";
 
+/// <summary>
+/// Reads the manifest file and save the manifest file.
+/// </summary>
+export function touchManifestFile(manifestPath: string) {
+  if (!fs.existsSync(manifestPath)) {
+    return;
+  }
+
+  saveManifestFile(manifestPath, JSON.parse(fs.readFileSync(manifestPath, "utf8")));
+}
+
+/// <summary>
+/// Saves the manifest file.
+/// </summary>
+export function saveManifestFile(manifestPath: string, data: any) {
+  fs.writeFileSync(manifestPath, JSON.stringify(data, null, 2), "utf8");
+  output.log(`Manifest saved successfully at '${manifestPath}'`);
+}
+
+/// <summary>
+/// Adds a dependency to the manifest file.
+/// </summary>
+export function addDependencyToManifest(
+  manifestPath: string,
+  id: string,
+  name: string,
+  publisher: string,
+  version: string
+) {
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`Manifest could not be found at '${manifestPath}'`);
+  }
+
+  let manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+
+  if (!manifest.dependencies) {
+    manifest.dependencies = [];
+  }
+
+  manifest.dependencies.push({ id, name, publisher, version });
+
+  saveManifestFile(manifestPath, manifest);
+}
+
+/// <summary>
+/// Removes a dependency from the manifest file.
+/// </summary>
+export function removeDependencyFromManifest(manifestPath: string, id: string) {
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`Manifest could not be found at '${manifestPath}'`);
+  }
+
+  let manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+
+  if (!manifest.dependencies) {
+    return;
+  }
+
+  manifest.dependencies = manifest.dependencies.filter(
+    (dependency: any) => dependency.id !== id
+  );
+
+  saveManifestFile(manifestPath, manifest);
+}
+
+/// <summary>
+/// Reads the manifest file and returns the packages.
+/// </summary>
 export async function getPackageCacheFromManifestFile(
   manifestPath: string
 ): Promise<Package[]> {
@@ -16,6 +84,9 @@ export async function getPackageCacheFromManifestFile(
   return getPackageCacheFromManifest(manifestPath, JSON.parse(manifest));
 }
 
+/// <summary>
+/// Reads the manifest and returns the packages.
+/// </summary>
 export async function getPackageCacheFromManifest(
   manifestPath: string,
   manifest: any
@@ -26,7 +97,7 @@ export async function getPackageCacheFromManifest(
     throw new Error("Application not found in the manifest");
   }
 
-  let countryCode = settings.getCountryCode();
+  let countryCode = settings.getCountryCode().toUpperCase();
   let projectPath = path.dirname(manifestPath);
   let alPackagesPath = path.join(projectPath, ".alpackages");
 
@@ -35,19 +106,16 @@ export async function getPackageCacheFromManifest(
     `Microsoft.Application.${countryCode}.symbols`,
     null,
     manifest.application,
-    getVersionFromALPackagesCache(
-      "Microsoft",
-      "Application",
-      manifest.application,
-      alPackagesPath
-    ),
+    manifest.application,
     "Application",
     "Provides business processes that are typical for small and mid-sized companies, such as sales and purchasing, and customer and vendor management, plus complex processes, such as assembly, manufacturing, service, and directed warehouse management.",
     "Microsoft",
     countryCode,
     {
       name: "Local",
-    }
+    },
+    null,
+    alPackagesPath
   );
   pkg = await checkUpdateVersionAvailable(pkg);
   packages.push(pkg);
@@ -57,43 +125,37 @@ export async function getPackageCacheFromManifest(
     `Microsoft.BaseApplication.${countryCode}.symbols.437dbf0e-84ff-417a-965d-ed2bb9650972`,
     "437dbf0e-84ff-417a-965d-ed2bb9650972",
     manifest.application,
-    getVersionFromALPackagesCache(
-      "Microsoft",
-      "Base Application",
-      manifest.application,
-      alPackagesPath
-    ),
+    manifest.application,
     "Base Application",
     "Provides business processes that are typical for small and mid-sized companies, such as sales and purchasing, and customer and vendor management, plus complex processes, such as assembly, manufacturing, service, and directed warehouse management.",
     "Microsoft",
     countryCode,
     {
       name: "Local",
-    }
+    },
+    null,
+    alPackagesPath
   );
   pkg = await checkUpdateVersionAvailable(pkg);
   packages.push(pkg);
 
   // Check if the major version in manifest.application is equal or larger than 24 and add the Business Foundation package
   const majorVersion = parseInt(manifest.application.split(".")[0], 10);
-  if (majorVersion >= 24) {
+  if ((majorVersion >= 24) || (parseInt(pkg.Version.split(".")[0]) >= 24)) {
     pkg = new Package(
       `Microsoft.BusinessFoundation.${countryCode}.symbols.f3552374-a1f2-4356-848e-196002525837`,
       "f3552374-a1f2-4356-848e-196002525837",
       manifest.application,
-      getVersionFromALPackagesCache(
-        "Microsoft",
-        "Business Foundation",
-        manifest.application,
-        alPackagesPath
-      ),
+      manifest.application,
       "Business Foundation",
       "Contains an expansive set of open source modules that make it easier to build, maintain, and easily upgrade on-premises and online apps. These modules let you focus on the business logic, and the needs of your users or customers.",
       "Microsoft",
       countryCode,
       {
         name: "Local",
-      }
+      },
+      null,
+      alPackagesPath
     );
     pkg = await checkUpdateVersionAvailable(pkg);
     packages.push(pkg);
@@ -104,19 +166,16 @@ export async function getPackageCacheFromManifest(
     `Microsoft.Platform.symbols`,
     null,
     manifest.platform,
-    getVersionFromALPackagesCache(
-      "Microsoft",
-      "System",
-      manifest.platform,
-      alPackagesPath
-    ),
+    manifest.platform,
     "Platform",
     "",
     "Microsoft",
     "",
     {
       name: "Local",
-    }
+    },
+    null,
+    alPackagesPath
   );
   pkg = await checkUpdateVersionAvailable(pkg);
   packages.push(pkg);
@@ -126,19 +185,16 @@ export async function getPackageCacheFromManifest(
     `Microsoft.SystemApplication.${countryCode}.symbols.63ca2fa4-4f03-4f2b-a480-172fef340d3f`,
     "63ca2fa4-4f03-4f2b-a480-172fef340d3f",
     manifest.platform,
-    getVersionFromALPackagesCache(
-      "Microsoft",
-      "System Application",
-      manifest.platform,
-      alPackagesPath
-    ),
+    manifest.platform,
     "System Application",
     "Contains an expansive set of open source modules that make it easier to build, maintain, and easily upgrade on-premises and online apps. These modules let you focus on the business logic, and the needs of your users or customers.",
     "Microsoft",
     countryCode,
     {
       name: "Local",
-    }
+    },
+    null,
+    alPackagesPath
   );
   pkg = await checkUpdateVersionAvailable(pkg);
   packages.push(pkg);
@@ -149,19 +205,16 @@ export async function getPackageCacheFromManifest(
         null,
         dependency.id,
         dependency.version,
-        getVersionFromALPackagesCache(
-          dependency.publisher,
-          dependency.name,
-          dependency.version,
-          alPackagesPath
-        ),
+        dependency.version,
         dependency.name,
         "",
         dependency.publisher,
         countryCode,
         {
           name: "Local",
-        }
+        },
+        null,
+        alPackagesPath
       );
       pkg = await checkUpdateVersionAvailable(pkg);
       packages.push(pkg);
@@ -169,29 +222,6 @@ export async function getPackageCacheFromManifest(
   }
 
   return packages;
-}
-
-function getVersionFromALPackagesCache(
-  publisher: string,
-  name: string,
-  minVersion: string,
-  alPackagesPath: string
-): string {
-  let version = minVersion;
-  try {
-    fs.readdirSync(alPackagesPath).forEach((file) => {
-      if (
-        file
-          .toLowerCase()
-          .startsWith(`${publisher.toLowerCase()}_${name.toLowerCase()}`)
-      ) {
-        version = file.split("_")[2].replaceAll(".app", "");
-      }
-    });
-  } catch (error) {
-    console.log(error);
-  }
-  return version;
 }
 
 async function checkUpdateVersionAvailable(
@@ -204,12 +234,14 @@ async function checkUpdateVersionAvailable(
   let packages;
   if (pkg.Publisher.toLowerCase() === "microsoft") {
     packages = await fetchPackagesFromFeed(
+      settings.MSSymbolsFeedName,
       settings.MSSymbolsFeedUrl,
       pkg.PackageID,
       false
     );
     if (packages.length === 0) {
       packages = await fetchPackagesFromFeed(
+        settings.AppSourceSymbolsFeedName,
         settings.AppSourceSymbolsFeedUrl,
         pkg.PackageID,
         false
@@ -228,7 +260,9 @@ async function checkUpdateVersionAvailable(
 
       pkg.UpdateVersion = packages[0].Version;
 
-      output.log(`Update for package '${pkg.PackageID}' (Version ${packages[0].Version}) is available.`);
+      if (pkg.Version !== pkg.MinimumVersion) {
+        output.log(`Update for package '${pkg.PackageID}' (Version ${packages[0].Version}) is available.`);
+      }
       return pkg;
     }
 
@@ -242,10 +276,13 @@ async function checkUpdateVersionAvailable(
 
     pkg.UpdateVersion = packages[0].Version;
 
-    output.log(`Update for package '${pkg.PackageID}' (Version ${packages[0].Version}) is available.`);
+    if (pkg.Version !== pkg.MinimumVersion) {
+      output.log(`Update for package '${pkg.PackageID}' (Version ${packages[0].Version}) is available.`);
+    }
     return pkg;
   } else {
     packages = await fetchPackagesFromFeed(
+      settings.AppSourceSymbolsFeedName,
       settings.AppSourceSymbolsFeedUrl,
       pkg.PackageID,
       false
@@ -264,7 +301,9 @@ async function checkUpdateVersionAvailable(
 
     pkg.UpdateVersion = packages[0].Version;
 
-    output.log(`Update for package '${pkg.PackageID}' (Version ${packages[0].Version}) is available.`);
+    if (pkg.Version !== pkg.MinimumVersion) {
+      output.log(`Update for package '${pkg.PackageID}' (Version ${packages[0].Version}) is available.`);
+    }
     return pkg;
   }
 }

@@ -3,15 +3,22 @@ import * as settings from '../Common/settings';
 import { getServiceUrl } from './packageIndex';
 import { Package } from '../Models/package';
 
+/// <summary>
+/// Fetches the packages from the NuGet.org feed
+/// </summary>
 export async function fetchPackages(packageName: string, prerelease: boolean) {
     fetchPackagesFromFeed(
+        settings.NuGetOrgFeedName,
         settings.NuGetOrgFeedUrl,
         packageName,
         prerelease
     );
 }
 
-export async function fetchPackagesFromFeed(feedUrl: string, packageName: string, prerelease: boolean): Promise<Package[]> {
+/// <summary>
+/// Fetches the packages from the feed
+/// </summary>
+export async function fetchPackagesFromFeed(feedName: string, feedUrl: string, packageName: string, prerelease: boolean): Promise<Package[]> {
     try {
         packageName = packageName.replaceAll(' ', '');
 
@@ -46,12 +53,12 @@ export async function fetchPackagesFromFeed(feedUrl: string, packageName: string
                     nugetPackage.authors[0],
                     countryCode,
                     {
-                        name: "NuGet",
+                        name: feedName,
                         url: feedUrl
                     },
                     nugetPackage
                 )
-            )
+            );
         });
         return result;
     } catch (error) {

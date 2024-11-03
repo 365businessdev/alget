@@ -16,6 +16,9 @@ export default class PackageManager {
   private readonly webviewMessageHandler: WebviewMessageHandler;
   private disposables: vscode.Disposable[] = [];
 
+  /// <summary>
+  /// Creates a new instance of the Package Manager or shows an existing one
+  /// </summary>
   public static createOrShow(
     extensionPath: string,
     projectWorkspaceFolder: vscode.WorkspaceFolder
@@ -40,6 +43,9 @@ export default class PackageManager {
     return PackageManager.currentPanels;
   }
 
+  /// <summary>
+  /// Creates a new instance of the PackageManager class
+  /// </summary>
   private constructor(
     extensionPath: string,
     column: vscode.ViewColumn,
@@ -77,6 +83,9 @@ export default class PackageManager {
     this.webviewMessageHandler.loadPackages();
   }
 
+  /// <summary>
+  /// Disposes the Package Manager instance
+  /// </summary>
   private dispose() {
     PackageManager.currentPanels[this.projectWorkspaceFolder.uri.fsPath] =
       undefined;
@@ -93,6 +102,9 @@ export default class PackageManager {
     }
   }
 
+  /// <summary>
+  /// Gets the HTML content for the webview
+  /// </summary>
   private getHtmlForWebview() {
     // path to dist folder
     const appDistPath = path.join(this.extensionPath, "src/UI/Html");

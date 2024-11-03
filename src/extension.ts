@@ -4,6 +4,7 @@ import * as settings from "./Common/settings";
 import PackageManager from "./UI/packageManager";
 import * as workspaceSelection from "./UI/workspaceSelection";
 import * as output from "./output";
+import { RestoreNuGetPackages } from "./NuGet/restore";
 
 export function activate(context: vscode.ExtensionContext) {
   const extensionVersion = context.extension.packageJSON.version || 'unknown';
@@ -14,6 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("365businessdev.alget.helloWorld", () => {
       vscode.window.showInformationMessage("Hello from ALGet 😊!");
       fetchPackagesFromFeed(
+        settings.AppSourceSymbolsFeedName,
         settings.AppSourceSymbolsFeedUrl,
         "365 business development.365 business Print Agent.symbols.6fb30c19-f5d6-4e4c-b006-18fba4de1898",
         false
@@ -40,8 +42,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
     ),
     vscode.commands.registerCommand("365businessdev.alget.restore", () => {
-      vscode.window.showInformationMessage("Restoring packages for project");
-      // TODO: Implement restore packages
+      RestoreNuGetPackages();
     }),
   );
 }

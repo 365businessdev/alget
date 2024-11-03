@@ -43,8 +43,8 @@
         "title": "ALGet: Manage Packages"
       },
       {
-        "command": "365businessdev.alget.helloWorld",
-        "title": "ALGet: Hello World"
+        "command": "365businessdev.alget.restore",
+        "title": "ALGet: Restore NuGet Packages"
       }
     ],
     "menus": {

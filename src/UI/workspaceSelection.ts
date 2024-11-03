@@ -1,5 +1,8 @@
 import * as vscode from "vscode";
 
+/// <summary>
+/// Gets the workspace folder from the manifest file.
+/// </summary>
 export function getWorkspaceFolderFromManifest(uri: vscode.Uri): vscode.WorkspaceFolder | undefined {
     if (!uri.fsPath.endsWith("app.json")) {
       return undefined;
@@ -8,6 +11,9 @@ export function getWorkspaceFolderFromManifest(uri: vscode.Uri): vscode.Workspac
     return vscode.workspace.getWorkspaceFolder(uri);
 }
 
+/// <summary>
+/// Gets the workspace folder.
+/// </summary>
 export async function getWorkspaceFolder(uri: vscode.Uri) : Promise<vscode.WorkspaceFolder | undefined> {
     if (vscode.workspace.workspaceFolders === undefined) {
       vscode.window.showErrorMessage("No workspace is opened.");

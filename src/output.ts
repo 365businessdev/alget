@@ -21,6 +21,10 @@ export function log(message: string) {
     outputChannel.show(true);
 }
 
+/// <summary>
+/// Logs an error message to the output channel.
+/// </summary>
+/// <param name="message">The error message to log.</param>
 export function logError(message: string) {
     if (message === "") {
         return;

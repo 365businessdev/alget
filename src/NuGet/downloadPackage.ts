@@ -1,6 +1,9 @@
 import axios from "axios";
 import { getServiceUrl } from "./packageIndex";
 
+/// <summary>
+/// Downloads the nupkg package from the feed.
+/// </summary>
 export async function downloadPackage(packageName: string, version: string, feedUrl: string): Promise<string> {
     try {
         const downloadUrl = await getServiceUrl(feedUrl, 'PackageBaseAddress') + `/${packageName}/${version}/${packageName}.${version}.nupkg`;

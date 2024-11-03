@@ -6,6 +6,9 @@ import * as output from '../output';
 import { Project } from "../Models/project";
 
 export default class ProjectLoader {
+    /// <summary>
+    /// Loads the AL project from the specified workspace folder
+    /// </summary>
     public async loadProjectAsync(folder: vscode.WorkspaceFolder): Promise<Project | null> {
         let projectFolder = folder.uri.fsPath;
 

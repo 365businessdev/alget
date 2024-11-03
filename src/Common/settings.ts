@@ -16,14 +16,29 @@ export const ExtensionOutputPrefix = "ALGet: ";
 export const ExtensionWebviewName = "ALGet Package Manager";
 
 /// <summary>
+/// The title of the webview.
+/// </summary>
+export const NuGetOrgFeedName = "NuGet.org";
+
+/// <summary>
 /// Gets the NuGet.org feed URL.
 /// </summary>
 export const NuGetOrgFeedUrl = "https://api.nuget.org/v3/index.json";
 
 /// <summary>
+/// Gets the Microsoft Symbols feed name.
+/// </summary>
+export const MSSymbolsFeedName = "MSSymbols";
+
+/// <summary>
 /// Gets the Microsoft Symbols feed URL.
 /// </summary>
 export const MSSymbolsFeedUrl = "https://dynamicssmb2.pkgs.visualstudio.com/DynamicsBCPublicFeeds/_packaging/MSSymbols/nuget/v3/index.json";
+
+/// <summary>
+/// Gets the AppSource Symbols feed name.
+/// </summary>
+export const AppSourceSymbolsFeedName = "AppSourceSymbols";
 
 /// <summary>
 /// Gets the AppSource Symbols feed URL.
@@ -40,6 +55,6 @@ export function getCountryCode(): string {
         return configuration["countryCode"];
     } catch (error) {
         vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
-        return "w1";
+        return "";
     }
 } 

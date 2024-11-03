@@ -1,5 +1,7 @@
 import { Package } from "../Models/package";
+import * as settings from "../Common/settings";
 import * as output from "../output";
+import { fetchPackagesFromFeed } from "../NuGet/fetchPackages";
 import { downloadPackage } from "../NuGet/downloadPackage";
 import { downloadPackageManifest } from "../NuGet/downloadPackageManifest";
 import * as vscode from "vscode";
@@ -7,52 +9,107 @@ import { PackageDependency } from '../Models/package-dependency';
 const fs = require("fs");
 const path = require("path");
 
+/// <summary>
+/// Class for managing packages
+/// </summary>
 class PackageManager {
-  private static packages: Package[] = [];
-  private static projectWorkspaceFolder: vscode.WorkspaceFolder;
+  private packages: Package[] = [];
+  private projectWorkspaceFolder: vscode.WorkspaceFolder;
 
-  private constructor() {
-    // Private constructor to prevent instantiation
+  /// <summary>
+  /// Initializes a new instance of the PackageManager class
+  /// </summary>
+  constructor(projectWorkspaceFolder: vscode.WorkspaceFolder) {
+    this.projectWorkspaceFolder = projectWorkspaceFolder;
   }
 
   /// <summary>
-  /// Sets the project workspace folder
+  /// Loads the packages from the configured feeds
   /// </summary>
-  static setProjectWorkspaceFolder(
-    projectWorkspaceFolder: vscode.WorkspaceFolder
-  ): void {
-    this.projectWorkspaceFolder = projectWorkspaceFolder;
+  public async loadPackages(filterString: string | undefined = undefined): Promise<Package[]> {
+    this.packages = [];
+
+    output.log("Loading packages from feeds");
+
+    output.log(
+      `Fetching packages from '${settings.MSSymbolsFeedUrl}' feed url`
+    );
+    let packages = await fetchPackagesFromFeed(
+      settings.MSSymbolsFeedName,
+      settings.MSSymbolsFeedUrl,
+      filterString === undefined ? `.${settings.getCountryCode().toUpperCase() || ""}.` : filterString,
+      false
+    );
+    output.log(`${packages.length} packages received from feed`);
+    this.packages.push(...packages);
+
+    output.log(
+      `Fetching packages from '${settings.AppSourceSymbolsFeedUrl}' feed url`
+    );
+    packages = await fetchPackagesFromFeed(
+      settings.AppSourceSymbolsFeedName,
+      settings.AppSourceSymbolsFeedUrl,
+      filterString === undefined ? "" : filterString,
+      false
+    );
+    output.log(`${packages.length} packages received from feed`);
+    this.packages.push(...packages);
+
+    this.packages.push(...await this.loadPackagesFromCustomFeeds(filterString));
+
+    return this.packages;
+  }
+
+  /// <summary>
+  /// Loads the packages from the custom feeds
+  /// </summary>
+  private async loadPackagesFromCustomFeeds(filterString: string | undefined = undefined): Promise<Package[]> {
+    // TODO: Implement fetching packages from other feeds
+
+    return [];
   }
 
   /// <summary>
   /// Sets the packages for the package manager instance
   /// </summary>
-  static setPackageCache(packages: Package[]): void {
+  setPackageCache(packages: Package[]): void {
     this.packages = packages;
   }
 
   /// <summary>
   /// Installs a package
   /// </summary>
-  static install(packageId: string, packageVersion: string): void {
-    const pkg = this.packages.find((p) => p.PackageID === packageId);
+  async install(packageId: string, packageVersion: string | undefined): Promise<void> {
+    let pkg = this.packages.find((p) => p.PackageID === packageId);
     if (!pkg) {
-      output.logError(`Package ${packageId} not found`);
+      this.packages = await this.loadPackages(packageId);
+      pkg = this.packages.find((p) => p.PackageID === packageId);
+      if (!pkg) {
+        output.logError(`Package ${packageId} not found`);
 
-      return;
+        return;
+      }
     }
+
+    if (packageVersion === undefined) {
+      packageVersion = pkg.UpdateVersion;
+
+      if (pkg.Source.name !== "Local") {
+        packageVersion = pkg.Version;
+      }
+
+      if (packageVersion === undefined) {
+        output.logError(`Could not find package version for ${pkg.Name} in package feeds`);
+
+        return;
+      }
+    }
+
     output.log(
       `Downloading package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} from ${pkg.Source.name} feed`
     );
-    if (pkg.PackageID === null) {
-      output.logError(
-        `Failed to download package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} from ${pkg.Source.name} feed`
-      );
-
-      return;
-    }
-    downloadPackage(pkg.PackageID, packageVersion, pkg.Source.url!).then(
-      (downloadData) => {
+    await downloadPackage(pkg.PackageID!, packageVersion, pkg.Source.url!).then(
+      async (downloadData) => {
         if (downloadData === "") {
           output.logError(
             `Failed to download package ${pkg.Name} (ID: ${pkg.PackageID}) from ${pkg.Source.name} feed`
@@ -77,7 +134,7 @@ class PackageManager {
         try {
           const JSZip = require("jszip");
           const zip = new JSZip();
-          zip.loadAsync(downloadData, { base64: true }).then((zipData: any) => {
+          await zip.loadAsync(downloadData, { base64: true }).then(async (zipData: any) => {
             // Extract the .app file from the nupkg (zip file)
             const packageItem = Object.keys(zipData.files).find((fileName) =>
               fileName.endsWith(".app")
@@ -87,11 +144,14 @@ class PackageManager {
               return;
             }
             const appFileData = zipData.files[packageItem];
-            const appFileName = `${pkg.Publisher}_${pkg.Name}_${packageVersion}.app`;
+            let appFileName = `${pkg.Publisher}_${pkg.Name}_${packageVersion}.app`;          
+            if ((pkg.Publisher === "Microsoft") && (pkg.Name === "Platform")) {
+              appFileName = `${pkg.Publisher}_System_${packageVersion}.app`;
+            }
             const appFilePath = path.join(alPackagesFolder, appFileName);
 
             // Write the .app file to the .alpackages folder
-            appFileData.async("nodebuffer").then((content: Buffer) => {
+            await appFileData.async("nodebuffer").then((content: Buffer) => {
               fs.writeFile(
                 appFilePath,
                 content,
@@ -116,7 +176,10 @@ class PackageManager {
     );
   }
 
-  static async getPackageDependencies(packageId: string, packageVersion: string): Promise<PackageDependency[]> {
+  /// <summary>
+  /// Gets the dependencies of a package
+  /// </summary>
+  async getPackageDependencies(packageId: string, packageVersion: string): Promise<PackageDependency[]> {
     const pkg = this.packages.find((p) => p.PackageID === packageId);
     if (!pkg) {
       output.logError(`Package ${packageId} not found`);
@@ -149,6 +212,9 @@ class PackageManager {
       return [];
     }
     packageManifest.metadata[0].dependencies[0].dependency.forEach((dependency: any) => {
+      if ((pkg.CountryCode !== "") && (dependency.$.id === "Microsoft.Application.symbols")) {
+        dependency.$.id = `Microsoft.Application.${pkg.CountryCode.toUpperCase()}.symbols`;
+      }
       packageDependencies.push({
           ID: dependency.$.id,
           Version: dependency.$.version
@@ -159,17 +225,17 @@ class PackageManager {
     return packageDependencies;
   }
 
-  static uninstall(packageName: string): void {
+  uninstall(packageName: string): void {
     console.log(`Uninstalling package: ${packageName}`);
     // Implementation for uninstalling a package
   }
 
-  static update(packageName: string): void {
+  update(packageName: string): void {
     console.log(`Updating package: ${packageName}`);
     // Implementation for updating a package
   }
 
-  static list(): void {
+  list(): void {
     console.log("Listing all packages");
     // Implementation for listing all packages
   }
