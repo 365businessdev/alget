@@ -431,6 +431,8 @@
               let notInstalledCount = message.data.packages.filter(pkg => !pkg.IsInstalled).length;
               if (notInstalledCount > 0) {
                 installedTab.innerHTML = `Installed <span style="background-color: #0078d7; padding:2px; padding-left: 5px; padding-right: 5px; color: #fff;">${notInstalledCount}</span>`;
+              } else {
+                installedTab.innerText = "Installed";
               }
               message.data.packages.forEach((packageData) => {
                 appendPackageItem("installed", packageData);
