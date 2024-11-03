@@ -34,7 +34,7 @@ class PackageManager {
     output.log(
       `Fetching packages from '${settings.MSSymbolsFeedUrl}' feed url`
     );
-    let packages = await fetchPackagesFromFeed(
+    let packages: Package[] = await fetchPackagesFromFeed(
       settings.MSSymbolsFeedName,
       settings.MSSymbolsFeedUrl,
       filterString === undefined ? `.${settings.getCountryCode().toUpperCase() || ""}.` : filterString,
@@ -64,9 +64,21 @@ class PackageManager {
   /// Loads the packages from the custom feeds
   /// </summary>
   private async loadPackagesFromCustomFeeds(filterString: string | undefined = undefined): Promise<Package[]> {
-    // TODO: Implement fetching packages from other feeds
+    let packages: Package[] = [];
 
-    return [];
+    const customFeeds = settings.getCustomFeeds();
+    for (const feed of customFeeds) {
+      output.log(`Fetching packages from '${feed.url}' feed url`);
+      const feedPackages = await fetchPackagesFromFeed(
+        feed.name,
+        feed.url,
+        filterString === undefined ? "" : filterString,
+        false
+      );
+      packages.push(...feedPackages);
+    }
+
+    return packages;
   }
 
   /// <summary>

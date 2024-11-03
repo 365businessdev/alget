@@ -73,6 +73,31 @@
             "type": "string",
             "default": "w1",
             "description": "Country code to be used for localized NuGet packages."
+          },
+          "365businessdev.alget.nugetFeeds": {
+            "type": "array",
+            "description": "List of additional NuGet feeds.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Name of the NuGet feed."
+                },
+                "url": {
+                  "type": "string",
+                  "description": "URL of the NuGet feed, e.g. https://api.nuget.org/v3/index.json."
+                },
+                "apiKey": {
+                  "type": "string",
+                  "description": "API key for the NuGet feed if required."
+                }
+              },
+              "required": [
+                "name",
+                "url"
+              ]
+            }
           }
         }
       }

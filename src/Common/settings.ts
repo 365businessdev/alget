@@ -1,3 +1,4 @@
+import exp from 'constants';
 import * as vscode from 'vscode';
 
 /// <summary>
@@ -57,4 +58,18 @@ export function getCountryCode(): string {
         vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
         return "";
     }
-} 
+}
+
+/// <summary>
+/// Returns the custom feeds from the settings.
+/// </summary>
+export function getCustomFeeds(): any[] {
+    const configuration = vscode.workspace.getConfiguration(ExtensionName);
+
+    try {
+        return configuration["nugetFeeds"];
+    } catch (error) {
+        vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
+        return [];
+    }
+}
