@@ -27,6 +27,7 @@ export async function RestoreNuGetPackages() {
             success = success && await restorePackagesFromWorkspaceFolder(folder);
         }
         if (success) {
+            // TODO: Find a way to invoke AL language extension to reload, without reloading the window
             // vscode.workspace.workspaceFolders.forEach((folder) => {
             //     const manifestPath = path.join(folder.uri.fsPath, 'app.json');
             //     if (!fs.existsSync(manifestPath)) {

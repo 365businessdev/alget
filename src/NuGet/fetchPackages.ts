@@ -2,14 +2,17 @@ import axios from 'axios';
 import * as settings from '../Common/settings';
 import { getServiceUrl } from './packageIndex';
 import { Package } from '../Models/package';
+import { PackageSource } from '../Models/package-source';
 
 /// <summary>
 /// Fetches the packages from the NuGet.org feed
 /// </summary>
 export async function fetchPackages(packageName: string, prerelease: boolean) {
     fetchPackagesFromFeed(
-        settings.NuGetOrgFeedName,
-        settings.NuGetOrgFeedUrl,
+        new PackageSource(
+            settings.NuGetOrgFeedName,
+            settings.NuGetOrgFeedUrl
+        ),
         packageName,
         prerelease
     );
@@ -18,12 +21,16 @@ export async function fetchPackages(packageName: string, prerelease: boolean) {
 /// <summary>
 /// Fetches the packages from the feed
 /// </summary>
-export async function fetchPackagesFromFeed(feedName: string, feedUrl: string, packageName: string, prerelease: boolean): Promise<Package[]> {
+export async function fetchPackagesFromFeed(packageSource: PackageSource, packageName: string, prerelease: boolean): Promise<Package[]> {
     try {
+        if (!packageSource.url) {
+            throw new Error('The feed URL is not defined.');
+        }
+
         packageName = packageName.replaceAll(' ', '');
 
         // Get the search URL for the feed
-        const searchUrl = await getServiceUrl(feedUrl, 'SearchQueryService') + `?q=${packageName}&prerelease=${prerelease}`;
+        const searchUrl = await getServiceUrl(packageSource.url, 'SearchQueryService') + `?q=${packageName}&prerelease=${prerelease}`;
         console.log(`URL: ${searchUrl}`);
         // Fetch packages using the search URL
         const searchResponse = await axios.get(searchUrl);
@@ -57,10 +64,7 @@ export async function fetchPackagesFromFeed(feedName: string, feedUrl: string, p
                     nugetPackage.description,
                     nugetPackage.authors[0],
                     countryCode,
-                    {
-                        name: feedName,
-                        url: feedUrl
-                    },
+                    packageSource,
                     nugetPackage
                 )
             );

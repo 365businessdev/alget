@@ -4,6 +4,7 @@ import * as settings from "../Common/settings";
 import { Package } from "../Models/package";
 import * as output from "../output";
 import { fetchPackagesFromFeed } from "../NuGet/fetchPackages";
+import { PackageSource } from "../Models/package-source";
 
 /// <summary>
 /// Reads the manifest file and save the manifest file.
@@ -111,9 +112,7 @@ export async function getPackageCacheFromManifest(
     "Provides business processes that are typical for small and mid-sized companies, such as sales and purchasing, and customer and vendor management, plus complex processes, such as assembly, manufacturing, service, and directed warehouse management.",
     "Microsoft",
     countryCode,
-    {
-      name: "Local",
-    },
+    new PackageSource("Local"),
     null,
     alPackagesPath
   );
@@ -130,9 +129,7 @@ export async function getPackageCacheFromManifest(
     "Provides business processes that are typical for small and mid-sized companies, such as sales and purchasing, and customer and vendor management, plus complex processes, such as assembly, manufacturing, service, and directed warehouse management.",
     "Microsoft",
     countryCode,
-    {
-      name: "Local",
-    },
+    new PackageSource("Local"),
     null,
     alPackagesPath
   );
@@ -151,9 +148,7 @@ export async function getPackageCacheFromManifest(
       "Contains an expansive set of open source modules that make it easier to build, maintain, and easily upgrade on-premises and online apps. These modules let you focus on the business logic, and the needs of your users or customers.",
       "Microsoft",
       countryCode,
-      {
-        name: "Local",
-      },
+      new PackageSource("Local"),
       null,
       alPackagesPath
     );
@@ -171,9 +166,7 @@ export async function getPackageCacheFromManifest(
     "",
     "Microsoft",
     "",
-    {
-      name: "Local",
-    },
+    new PackageSource("Local"),
     null,
     alPackagesPath
   );
@@ -190,9 +183,7 @@ export async function getPackageCacheFromManifest(
     "Contains an expansive set of open source modules that make it easier to build, maintain, and easily upgrade on-premises and online apps. These modules let you focus on the business logic, and the needs of your users or customers.",
     "Microsoft",
     countryCode,
-    {
-      name: "Local",
-    },
+    new PackageSource("Local"),
     null,
     alPackagesPath
   );
@@ -210,9 +201,7 @@ export async function getPackageCacheFromManifest(
         "",
         dependency.publisher,
         countryCode,
-        {
-          name: "Local",
-        },
+        new PackageSource("Local"),
         null,
         alPackagesPath
       );
@@ -224,6 +213,7 @@ export async function getPackageCacheFromManifest(
   return packages;
 }
 
+// TODO: Move to package manager
 async function checkUpdateVersionAvailable(
   pkg: Package
 ): Promise<Package> {
@@ -234,15 +224,19 @@ async function checkUpdateVersionAvailable(
   let packages;
   if (pkg.Publisher.toLowerCase() === "microsoft") {
     packages = await fetchPackagesFromFeed(
-      settings.MSSymbolsFeedName,
-      settings.MSSymbolsFeedUrl,
+      new PackageSource(
+        settings.MSSymbolsFeedName,
+        settings.MSSymbolsFeedUrl
+      ),
       pkg.PackageID,
       false
     );
     if (packages.length === 0) {
       packages = await fetchPackagesFromFeed(
-        settings.AppSourceSymbolsFeedName,
-        settings.AppSourceSymbolsFeedUrl,
+        new PackageSource(
+          settings.AppSourceSymbolsFeedName,
+          settings.AppSourceSymbolsFeedUrl
+        ),
         pkg.PackageID,
         false
       );
@@ -282,8 +276,10 @@ async function checkUpdateVersionAvailable(
     return pkg;
   } else {
     packages = await fetchPackagesFromFeed(
-      settings.AppSourceSymbolsFeedName,
-      settings.AppSourceSymbolsFeedUrl,
+      new PackageSource(
+        settings.AppSourceSymbolsFeedName,
+        settings.AppSourceSymbolsFeedUrl
+      ),
       pkg.PackageID,
       false
     );

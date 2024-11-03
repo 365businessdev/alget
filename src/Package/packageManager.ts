@@ -7,6 +7,7 @@ import { downloadPackageManifest } from "../NuGet/downloadPackageManifest";
 import * as vscode from "vscode";
 import { PackageDependency } from '../Models/package-dependency';
 import { Versions } from '../Models/nuspec';
+import { PackageSource } from '../Models/package-source';
 const fs = require("fs");
 const path = require("path");
 
@@ -39,8 +40,10 @@ class PackageManager {
         `Fetching packages from '${settings.MSSymbolsFeedUrl}' feed url`
       );
       pkgs = await fetchPackagesFromFeed(
-        settings.MSSymbolsFeedName,
-        settings.MSSymbolsFeedUrl,
+        new PackageSource(
+          settings.MSSymbolsFeedName,
+          settings.MSSymbolsFeedUrl
+        ),
         filterString === undefined ? `.${settings.getCountryCode().toUpperCase() || ""}.` : filterString,
         false
       );
@@ -53,8 +56,10 @@ class PackageManager {
         `Fetching packages from '${settings.AppSourceSymbolsFeedUrl}' feed url`
       );
       pkgs = await fetchPackagesFromFeed(
-        settings.AppSourceSymbolsFeedName,
-        settings.AppSourceSymbolsFeedUrl,
+        new PackageSource(
+          settings.AppSourceSymbolsFeedName,
+          settings.AppSourceSymbolsFeedUrl
+        ),
         filterString === undefined ? "" : filterString,
         false
       );
@@ -77,8 +82,12 @@ class PackageManager {
     for (const feed of customFeeds) {
       output.log(`Fetching packages from '${feed.url}' feed url`);
       const pkgs = await fetchPackagesFromFeed(
-        feed.name,
-        feed.url,
+        new PackageSource(
+          feed.name,
+          feed.url,
+          feed.packageIDSchema,
+          feed.apiKey
+        ),
         filterString === undefined ? "" : filterString,
         false
       );
@@ -115,7 +124,7 @@ class PackageManager {
       const versionRegex = /^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$/;
       if (!versionRegex.test(packageVersion)) {
         output.log(`Get actual version for package ${pkg.Name} (ID: ${pkg.PackageID}) in version range ${packageVersion}`);
-        let pkgMetadata: Package[] = await fetchPackagesFromFeed(pkg.Source.name, pkg.Source.url!, pkg.PackageID!, false);
+        let pkgMetadata: Package[] = await fetchPackagesFromFeed(new PackageSource(pkg.Source.name, pkg.Source.url!, pkg.Source.packageIDSchema, pkg.Source.authorizationHeader), pkg.PackageID!, false);
         if (!pkgMetadata[0].PackageMetadata!.versions) {
           packageVersion = pkgMetadata[0].Version;
         } else {

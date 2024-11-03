@@ -92,7 +92,7 @@ export default class WebviewMessageHandler {
     this.packageManager.install(message.packageId, message.packageVersion).then(() => {    
       // reset package list and reload project
       this.packages = [];
-      this.loadProject();      
+      this.loadProject();
     });
   }
 

@@ -102,6 +102,11 @@
                   "type": "string",
                   "description": "URL of the NuGet feed, e.g. https://api.nuget.org/v3/index.json."
                 },
+                "packageIDSchema": {
+                  "type": "string",
+                  "default": "{publisher}.{name}.symbols.{appId}",
+                  "description": "Schema for package IDs, e.g. {publisher}.{name}.symbols.{appId}."
+                },
                 "apiKey": {
                   "type": "string",
                   "description": "API key for the NuGet feed if required."
