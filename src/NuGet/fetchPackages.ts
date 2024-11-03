@@ -33,13 +33,18 @@ export async function fetchPackagesFromFeed(feedName: string, feedUrl: string, p
         let result: Package[] = [];
         
         nugetPackages.forEach((nugetPackage: any) => {
-            let countryCode = (nugetPackage.id as string).split('.')[2].toLowerCase();
-            if (countryCode.length !== 2) {
-                countryCode = '';
-            }
+            let countryCode = '';
+            try {
+                countryCode = (nugetPackage.id as string).split('.')[2].toLowerCase();
+                if (countryCode.length !== 2) {
+                    countryCode = '';
+                }            
 
-            if ((configCountryCode !== 'w1') && (countryCode !== '') && (configCountryCode !== countryCode)) {
-                return; // Skip packages that are not for the configured country
+                if ((configCountryCode !== 'w1') && (countryCode !== '') && (configCountryCode !== countryCode)) {
+                    return; // Skip packages that are not for the configured country
+                }    
+            } catch {
+                countryCode = '';
             }
 
             result.push(
