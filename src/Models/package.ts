@@ -119,23 +119,26 @@ export class Package {
 
         try {
             fs.readdirSync(alPackagesPath).forEach((file) => {
-                if (
-                    file
-                        .toLowerCase()
-                        .startsWith(searchFileName.toLowerCase())
-                ) {
-                    this.Version = file.split("_")[2].replaceAll(".app", "");
-                    this.IsInstalled = true;
-
-                    return;
-                }
+            if (
+                file
+                .toLowerCase()
+                .startsWith(searchFileName.toLowerCase())
+            ) {
+                this.Version = file.split("_")[2].replaceAll(".app", "");
+                this.IsInstalled = true;
+                return;
+            }
             });
+
+            if (!this.IsInstalled) {
+            // lookup in the VS Code workspace
+            this.tryFindPackageInVSCodeWorkspace();
+            }
         } catch (error) {
             console.log(error);
+            // lookup in the VS Code workspace
+            this.tryFindPackageInVSCodeWorkspace();
         }
-
-        // lookup in the VS Code workspace
-        this.tryFindPackageInVSCodeWorkspace();
     }
 
     private tryFindPackageInVSCodeWorkspace() {
