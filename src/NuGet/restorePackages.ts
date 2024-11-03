@@ -47,8 +47,6 @@ export async function RestoreNuGetPackages() {
                             vscode.commands.executeCommand('workbench.action.reloadWindow');
                         }
                     });
-            } else {
-                output.log('AL language extension is not installed.');
             }
         } else {
             vscode.window.showWarningMessage('Restoring packages failed. Some or all packages could not be restored. Please check the output for more information.');

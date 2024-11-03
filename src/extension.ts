@@ -4,7 +4,7 @@ import * as settings from "./Common/settings";
 import PackageManager from "./UI/packageManager";
 import * as workspaceSelection from "./UI/workspaceSelection";
 import * as output from "./output";
-import { RestoreNuGetPackages } from "./NuGet/restore";
+import { RestoreNuGetPackages } from "./NuGet/restorePackages";
 
 export function activate(context: vscode.ExtensionContext) {
   const extensionVersion = context.extension.packageJSON.version || 'unknown';
