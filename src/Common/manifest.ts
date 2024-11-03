@@ -45,6 +45,9 @@ export function addDependencyToManifest(
     manifest.dependencies = [];
   }
 
+  if (manifest.dependencies.find((dependency: any) => dependency.id === id)) {
+    return;
+  }
   manifest.dependencies.push({ id, name, publisher, version });
 
   saveManifestFile(manifestPath, manifest);
@@ -105,7 +108,7 @@ export async function getPackageCacheFromManifest(
   // Add the application package
   let pkg: Package = new Package(
     `Microsoft.Application.${countryCode}.symbols`,
-    null,
+    undefined,
     manifest.application,
     manifest.application,
     "Application",
@@ -159,7 +162,7 @@ export async function getPackageCacheFromManifest(
   // Add the platform package
   pkg = new Package(
     `Microsoft.Platform.symbols`,
-    null,
+    undefined,
     manifest.platform,
     manifest.platform,
     "Platform",

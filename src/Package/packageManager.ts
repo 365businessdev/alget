@@ -8,6 +8,7 @@ import * as vscode from "vscode";
 import { PackageDependency } from '../Models/package-dependency';
 import { Versions } from '../Models/nuspec';
 import { PackageSource } from '../Models/package-source';
+import { addDependencyToManifest, getPackageCacheFromManifest } from "../Common/manifest";
 const fs = require("fs");
 const path = require("path");
 
@@ -121,58 +122,71 @@ class PackageManager {
     }
 
     if (packageVersion !== undefined) {
-      const versionRegex = /^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$/;
-      if (!versionRegex.test(packageVersion)) {
-        output.log(`Get actual version for package ${pkg.Name} (ID: ${pkg.PackageID}) in version range ${packageVersion}`);
-        let pkgMetadata: Package[] = await fetchPackagesFromFeed(new PackageSource(pkg.Source.name, pkg.Source.url!, pkg.Source.packageIDSchema, pkg.Source.authorizationHeader), pkg.PackageID!, false);
-        if (!pkgMetadata[0].PackageMetadata!.versions) {
-          packageVersion = pkgMetadata[0].Version;
-        } else {
-          const packageMetadataVersions = pkgMetadata[0].PackageMetadata!.versions;
-          const versionRange = this.parseVersionRange(packageVersion);
-          if (versionRange === null) {
-            packageVersion = pkgMetadata[0].Version;
-          } else {
-            let validVersions: Versions[] = [];
+      if ((pkg.IsInstalled) && (pkg.Version >= packageVersion)) {
+        output.log(`Package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} or newer already installed`);
 
-            switch (true) {
-              case ((versionRange.minVersion === versionRange.maxVersion) && (versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
-                validVersions = packageMetadataVersions.filter((version: Versions) => version.version === versionRange.minVersion);
-                break;
-              case ((versionRange.minVersion === versionRange.maxVersion) && (versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
-                validVersions = packageMetadataVersions.filter((version: Versions) => version.version > versionRange.minVersion);
-                break;
-              case ((versionRange.minVersion === versionRange.maxVersion) && (!versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
-                validVersions = packageMetadataVersions.filter((version: Versions) => version.version < versionRange.minVersion);
-                break;
-              case ((versionRange.minVersion === versionRange.maxVersion) && (!versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
-                validVersions = packageMetadataVersions.filter((version: Versions) => version.version !== versionRange.minVersion);
-                break;
-              case ((versionRange.minVersion !== versionRange.maxVersion) && (versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
-                validVersions = packageMetadataVersions.filter((version: Versions) => version.version >= versionRange.minVersion && version.version <= versionRange.maxVersion);
-                break;
-              case ((versionRange.minVersion !== versionRange.maxVersion) && (versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
-                validVersions = packageMetadataVersions.filter((version: Versions) => version.version >= versionRange.minVersion && version.version < versionRange.maxVersion);
-                break;
-              case ((versionRange.minVersion !== versionRange.maxVersion) && (!versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
-                validVersions = packageMetadataVersions.filter((version: Versions) => version.version > versionRange.minVersion && version.version <= versionRange.maxVersion);
-                break;
-              case ((versionRange.minVersion !== versionRange.maxVersion) && (!versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
-                validVersions = packageMetadataVersions.filter((version: Versions) => version.version > versionRange.minVersion && version.version < versionRange.maxVersion);
-                break;
-            }            
-            if (validVersions.length === 0) {
-              packageVersion = pkgMetadata[0].Version;
-            } else {
-              packageVersion = validVersions.sort((a: Versions, b: Versions) => a.version.localeCompare(b.version))[0].version;
-            }
-          }
-        }
-      } else {
-        if ((pkg.IsInstalled) && (pkg.Version === packageVersion)) {
-          output.log(`Package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} already installed`);
+        return;
+      }
+
+      output.log(`Searching matching version for package ${pkg.Name} (ID: ${pkg.PackageID}) in version range ${packageVersion}`);
+      if (pkg.PackageMetadata === null) {
+        output.log(`Fetching package metadata for ${pkg.Name} (ID: ${pkg.PackageID}) from package feeds`);
+        pkg = await this.getPackageMetadataFromFeed(pkg);
+        if (pkg.PackageMetadata === null) {
+          output.logError(`Failed to fetch package metadata for ${pkg.Name} (ID: ${pkg.PackageID}) from package feeds`);
 
           return;
+        }
+      }
+      const packageMetadataVersions = pkg.PackageMetadata.versions!;
+      const versionRange = this.parseVersionRange(packageVersion);
+      if (versionRange === null) {
+        packageVersion = pkg.Version;
+      } else {
+        let validVersions: Versions[] = [];
+
+        switch (true) {
+          case ((versionRange.minVersion === versionRange.maxVersion) && (versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version === versionRange.minVersion);
+            break;
+          case ((versionRange.minVersion === versionRange.maxVersion) && (versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version > versionRange.minVersion);
+            break;
+          case ((versionRange.minVersion === versionRange.maxVersion) && (!versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version < versionRange.minVersion);
+            break;
+          case ((versionRange.minVersion === versionRange.maxVersion) && (!versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version !== versionRange.minVersion);
+            break;
+          case ((versionRange.minVersion !== versionRange.maxVersion) && (versionRange.maxVersion !== "") && (versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version >= versionRange.minVersion && version.version <= versionRange.maxVersion);
+            break;
+          case ((versionRange.minVersion !== versionRange.maxVersion) && (versionRange.maxVersion !== "") && (versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version >= versionRange.minVersion && version.version < versionRange.maxVersion);
+            break;
+          case ((versionRange.minVersion !== versionRange.maxVersion) && (versionRange.maxVersion !== "") && (!versionRange.isMinInclusive) && (versionRange.isMaxInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version > versionRange.minVersion && version.version <= versionRange.maxVersion);
+            break;
+          case ((versionRange.minVersion !== versionRange.maxVersion) && (versionRange.maxVersion !== "") && (!versionRange.isMinInclusive) && (!versionRange.isMaxInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version > versionRange.minVersion && version.version < versionRange.maxVersion);
+            break;
+          case ((versionRange.maxVersion === "") && (!versionRange.isMinInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version > versionRange.minVersion);
+            break;
+          case ((versionRange.maxVersion === "") && (versionRange.isMinInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version >= versionRange.minVersion);
+            break;
+          case ((versionRange.minVersion === "") && (!versionRange.isMaxInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version < versionRange.minVersion);
+            break;
+          case ((versionRange.minVersion === "") && (versionRange.isMaxInclusive)):
+            validVersions = packageMetadataVersions.filter((version: Versions) => version.version <= versionRange.minVersion);
+            break;
+        }            
+        if (validVersions.length === 0) {
+          packageVersion = pkg.Version;
+        } else {
+          packageVersion = validVersions.sort((a: Versions, b: Versions) => a.version.localeCompare(b.version))[0].version;
         }
       }
     } else {
@@ -192,6 +206,12 @@ class PackageManager {
     output.log(`Checking dependencies for package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion}`);
     const packageDependencies = await this.getPackageDependencies(pkg.PackageID!, packageVersion);
     if (packageDependencies.length > 0) {
+      const manifestPath = path.join(
+        this.projectWorkspaceFolder.uri.fsPath,
+        "app.json"
+      );
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      this.packages.push(... await getPackageCacheFromManifest(manifestPath, manifest));
       output.log(`Fetching dependencies for package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion}`);
       for (const dependency of packageDependencies) {
         output.log(`Downloading dependency ${dependency.ID} version ${dependency.Version}`);
@@ -199,86 +219,93 @@ class PackageManager {
       }
     }
 
-    output.log(
-      `Downloading package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} from ${pkg.Source.name} feed`
+    output.log(`Downloading package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} from ${pkg.Source.name} feed`);
+    const downloadData = await downloadPackage(pkg.PackageID!, packageVersion, pkg.Source.url!);
+    if (downloadData === "") {
+      output.logError(
+        `Failed to download package ${pkg.Name} (ID: ${pkg.PackageID}) from ${pkg.Source.name} feed`
+      );
+
+      return;
+    }
+    output.log(`Downloaded package ${pkg.Name} (ID: ${pkg.PackageID}) from ${pkg.Source.name} feed`);
+
+    const alPackagesFolder = path.join(
+      this.projectWorkspaceFolder.uri.fsPath,
+      ".alpackages"
     );
-    await downloadPackage(pkg.PackageID!, packageVersion, pkg.Source.url!).then(
-      async (downloadData) => {
-        if (downloadData === "") {
-          output.logError(
-            `Failed to download package ${pkg.Name} (ID: ${pkg.PackageID}) from ${pkg.Source.name} feed`
-          );
 
-          return;
-        }
-        output.log(
-          `Downloaded package ${pkg.Name} (ID: ${pkg.PackageID}) from ${pkg.Source.name} feed`
-        );
+    // Ensure the .alpackages folder exists
+    if (!fs.existsSync(alPackagesFolder)) {
+      fs.mkdirSync(alPackagesFolder);
+    }
 
-        const alPackagesFolder = path.join(
-          this.projectWorkspaceFolder.uri.fsPath,
-          ".alpackages"
-        );
+    try {
+      const JSZip = require("jszip");
+      const zip = new JSZip();
+      const zipData: any = await zip.loadAsync(downloadData, { base64: true });
 
-        // Ensure the .alpackages folder exists
-        if (!fs.existsSync(alPackagesFolder)) {
-          fs.mkdirSync(alPackagesFolder);
-        }
-
-        try {
-          const JSZip = require("jszip");
-          const zip = new JSZip();
-          await zip.loadAsync(downloadData, { base64: true }).then(async (zipData: any) => {
-            // Extract the .app file from the nupkg (zip file)
-            const packageItem = Object.keys(zipData.files).find((fileName) =>
-              fileName.endsWith(".app")
-            );
-            if (!packageItem) {
-              output.logError(`No .app file found in package ${pkg.Name}`);
-              return;
-            }
-            const appFileData = zipData.files[packageItem];
-            let appFileName = `${pkg.Publisher}_${pkg.Name}_${packageVersion}.app`;          
-            if ((pkg.Publisher === "Microsoft") && (pkg.Name === "Platform")) {
-              appFileName = `${pkg.Publisher}_System_${packageVersion}.app`;
-            }
-            const appFilePath = path.join(alPackagesFolder, appFileName);
-
-            // Write the .app file to the .alpackages folder
-            await appFileData.async("nodebuffer").then((content: Buffer) => {
-              fs.writeFile(
-                appFilePath,
-                content,
-                (err: NodeJS.ErrnoException | null) => {
-                  if (err) {
-                    output.logError(
-                      `Failed to write ${appFileName}: ${err.message}`
-                    );
-                    return;
-                  }
-                  output.log(`${pkg.Name} downloaded to '${appFilePath}'`);
-                }
-              );
-            });
-          });
-        } catch (error) {
-          output.logError(
-            `Error extracting .app file from package ${pkg.Name}: ${error}`
-          );
-        }
+      // Extract the .app file from the nupkg (zip file)
+      const packageItem = Object.keys(zipData.files).find((fileName) =>
+        fileName.endsWith(".app")
+      );
+      if (!packageItem) {
+        output.logError(`No .app file found in package ${pkg.Name}`);
+        return;
       }
-    );
+      const appFileData = zipData.files[packageItem];
+      let appFileName = `${pkg.Publisher}_${pkg.Name}_${packageVersion}.app`;          
+      if ((pkg.Publisher === "Microsoft") && (pkg.Name === "Platform")) {
+        appFileName = `${pkg.Publisher}_System_${packageVersion}.app`;
+      }
+      const appFilePath = path.join(alPackagesFolder, appFileName);
+
+      // Write the .app file to the .alpackages folder
+      const content: Buffer = await appFileData.async("nodebuffer");
+      fs.writeFile(
+        appFilePath,
+        content,
+        (err: NodeJS.ErrnoException | null) => {
+          if (err) {
+            output.logError(
+              `Failed to write ${appFileName}: ${err.message}`
+            );
+            return;
+          }
+          output.log(`${pkg.Name} downloaded to '${appFilePath}'`);
+
+          if (pkg.ID === undefined) {
+            output.logError(`Unable to add package ${pkg.Name} to AL project dependencies. App ID is missing in package metadata. Please report this to the package publisher.`);
+          } else {
+            // Update manifest file
+            const manifestPath = path.join(
+              this.projectWorkspaceFolder.uri.fsPath,
+              "app.json"
+            );
+            addDependencyToManifest(manifestPath, pkg.ID, pkg.Name, pkg.Publisher, packageVersion);
+          }
+        }
+      );
+    } catch (error) {
+      output.logError(
+        `Error extracting .app file from package ${pkg.Name}: ${error}`
+      );
+    }
   }
 
   /// <summary>
   /// Gets the dependencies of a package
   /// </summary>
   async getPackageDependencies(packageId: string, packageVersion: string): Promise<PackageDependency[]> {
-    const pkg = this.packages.find((p) => p.PackageID === packageId);
+    let pkg = this.packages.find((p) => p.PackageID === packageId);
     if (!pkg) {
-      output.logError(`Package ${packageId} not found`);
+      this.packages = await this.loadPackages(packageId);
+      pkg = this.packages.find((p) => p.PackageID === packageId);
+      if (!pkg) {
+        output.logError(`Package ${packageId} not found`);
 
-      return [];
+        return [];
+      }
     }
     packageVersion = pkg.UpdateVersion ? pkg.UpdateVersion : packageVersion;
     output.log(`Downloading package manifest ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} from ${pkg.Source.name} feed`);
@@ -302,12 +329,21 @@ class PackageManager {
     }
 
     let packageDependencies: PackageDependency[] = [];
+    if (!packageManifest.metadata[0].dependencies) {
+      return [];
+    }
     if (!packageManifest.metadata[0].dependencies[0].dependency) {
       return [];
     }
     packageManifest.metadata[0].dependencies[0].dependency.forEach((dependency: any) => {
-      if ((pkg.CountryCode !== "") && (dependency.$.id === "Microsoft.Application.symbols")) {
-        dependency.$.id = `Microsoft.Application.${pkg.CountryCode.toUpperCase()}.symbols`;
+      if (dependency.$.id === "Microsoft.Application.symbols") {
+        let countryCode = "";
+        if (pkg.CountryCode !== "") {
+          countryCode = pkg.CountryCode;
+        } else {
+          countryCode = settings.getCountryCode();
+        }
+        dependency.$.id = `Microsoft.Application.${countryCode.toUpperCase()}.symbols`;
       }
       packageDependencies.push({
           ID: dependency.$.id,
@@ -317,6 +353,100 @@ class PackageManager {
     });
 
     return packageDependencies;
+  }
+
+  private updatePackageMetadata(pkg: Package, feedPackageData: Package): Package {
+    // update the package with the metadata from the feed
+    pkg.PackageMetadata = feedPackageData.PackageMetadata;
+    pkg.Source = feedPackageData.Source;
+
+    if (feedPackageData.Version === pkg.Version) {
+      return pkg;
+    }
+
+    pkg.UpdateVersion = feedPackageData.Version;
+
+    if (pkg.Version !== pkg.MinimumVersion) {
+      output.log(`Update for package '${pkg.PackageID}' (Version ${feedPackageData.Version}) is available.`);
+    }
+    return pkg;
+  }
+
+  async getPackageMetadataFromFeed(pkg: Package): Promise<Package> {
+    if (pkg.PackageID === null) {
+      return pkg;
+    }
+
+    if (pkg.Source.url !== undefined) {
+      const packages = await fetchPackagesFromFeed(
+        new PackageSource(
+          pkg.Source.name,
+          pkg.Source.url,
+          pkg.Source.packageIDSchema,
+          pkg.Source.authorizationHeader
+        ),
+        pkg.PackageID,
+        false
+      );
+      if (packages.length !== 0) {
+        return this.updatePackageMetadata(pkg, packages[0]);
+      }
+    } else {
+      let packages: Package[];
+
+      if (pkg.Publisher.toLowerCase() === "microsoft") {
+        packages = await fetchPackagesFromFeed(
+          new PackageSource(
+            settings.MSSymbolsFeedName,
+            settings.MSSymbolsFeedUrl
+          ),
+          pkg.PackageID,
+          false
+        );
+        if (packages.length !== 0) {
+          return this.updatePackageMetadata(pkg, packages[0]);
+        }
+      }
+
+      packages = await fetchPackagesFromFeed(
+        new PackageSource(
+          settings.AppSourceSymbolsFeedName,
+          settings.AppSourceSymbolsFeedUrl
+        ),
+        pkg.PackageID,
+        false
+      );
+      if (packages.length !== 0) {
+        return this.updatePackageMetadata(pkg, packages[0]);
+      }
+
+      for (const feed of (settings.getCustomFeeds() as PackageSource[])) {
+        // transform package ID based on the package source schema
+        const packageId = feed.packageIDSchema !== "" ? 
+          feed.packageIDSchema.toLowerCase()
+            .replace("{publisher}", pkg.Publisher)
+            .replace("{name}", pkg.Name)
+            .replace("{version}", pkg.Version)
+            .replace("{appid}", pkg.ID ? pkg.ID : "")
+          : pkg.PackageID;
+
+        packages = await fetchPackagesFromFeed(
+          new PackageSource(
+            feed.name,
+            feed.url,
+            feed.packageIDSchema,
+            feed.authorizationHeader
+          ),
+          packageId,
+          false
+        );
+        if (packages.length !== 0) {
+          return this.updatePackageMetadata(pkg, packages[0]);
+        }
+      }
+    }
+
+    return pkg;
   }
 
   uninstall(packageName: string): void {
@@ -335,11 +465,33 @@ class PackageManager {
   }
 
   parseVersionRange(range: string): VersionRange | null {
-    // Handle exact version
-    if (/^\[\d+\.\d+(\.\d+)?(\.\d+)?\]$/.test(range)) {
+    // Handle simple min. version
+    if ((/^\d+\.\d+(\.\d+)?(\.\d+)?$/.test(range))) {
+      const version = range.replace(/[\[\]]/g, ''); // Remove brackets if present
+      const parts = version.split('.');
+      while (parts.length < 4) {
+        parts.push('0');
+      }
+      const fullVersion = parts.join('.');
       return {
-        minVersion: range,
-        maxVersion: range,
+        minVersion: fullVersion,
+        maxVersion: '',
+        isMinInclusive: true,
+        isMaxInclusive: false
+      };
+
+    }
+    // Handle exact version
+    if (/^\[\d+\.\d+(\.\d+)?(\.\d+)?\]$/.test(range))  {
+      const version = range.replace(/[\[\]]/g, ''); // Remove brackets if present
+      const parts = version.split('.');
+      while (parts.length < 4) {
+        parts.push('0');
+      }
+      const fullVersion = parts.join('.');
+      return {
+        minVersion: fullVersion,
+        maxVersion: fullVersion,
         isMinInclusive: true,
         isMaxInclusive: true
       };

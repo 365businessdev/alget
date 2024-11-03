@@ -16,7 +16,7 @@ export class Package {
     /// <summary>
     /// Application ID.
     /// </summary>
-    public ID: string | null;
+    public ID: string | undefined;
 
     /// <summary>
     /// Flag indicating if the package is installed.
@@ -70,7 +70,7 @@ export class Package {
 
     constructor(
         PackageID: string | null = null,
-        ID: string | null,
+        ID: string | undefined,
         MinimumVersion: string | null = null,
         Version: string,
         Name: string,

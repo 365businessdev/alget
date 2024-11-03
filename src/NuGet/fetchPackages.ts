@@ -54,10 +54,17 @@ export async function fetchPackagesFromFeed(packageSource: PackageSource, packag
                 countryCode = '';
             }
 
+            let appId : string | undefined = undefined;
+            try {
+                appId = (nugetPackage.id as string).split('.')[3];                
+            } catch {
+                appId = undefined;
+            }
+
             result.push(
                 new Package(
                     nugetPackage.id,
-                    (nugetPackage.id as string).split('.')[4],
+                    appId,
                     null,
                     nugetPackage.version,
                     nugetPackage.title,

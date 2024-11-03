@@ -88,8 +88,8 @@ export default class WebviewMessageHandler {
   /// Adds a package to the project
   /// </summary>
   private addPackage(message: InstallMessage): void {
-    this.packageManager.setPackageCache(this.packages);
-    this.packageManager.install(message.packageId, message.packageVersion).then(() => {    
+    //this.packageManager.setPackageCache(this.packages);
+    this.packageManager.install(message.packageId, message.packageVersion).then(() =>{    
       // reset package list and reload project
       this.packages = [];
       this.loadProject();
@@ -100,7 +100,7 @@ export default class WebviewMessageHandler {
   /// Gets the dependencies of a package
   /// </summary>
   private getPackageDependencies(message: InstallMessage): void {
-    this.packageManager.setPackageCache(this.packages);
+    //this.packageManager.setPackageCache(this.packages);
     this.packageManager.getPackageDependencies(
       message.packageId,
       message.packageVersion
