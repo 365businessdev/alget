@@ -6,6 +6,7 @@ import { downloadPackage } from "../NuGet/downloadPackage";
 import { downloadPackageManifest } from "../NuGet/downloadPackageManifest";
 import * as vscode from "vscode";
 import { PackageDependency } from '../Models/package-dependency';
+import { Versions } from '../Models/nuspec';
 const fs = require("fs");
 const path = require("path");
 
@@ -110,7 +111,43 @@ class PackageManager {
       }
     }
 
-    if (packageVersion === undefined) {
+    if (packageVersion !== undefined) {
+      const versionRegex = /^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$/;
+      if (!versionRegex.test(packageVersion)) {
+        output.log(`Get actual version for package ${pkg.Name} (ID: ${pkg.PackageID}) in version range ${packageVersion}`);
+        let pkgMetadata: Package[] = await fetchPackagesFromFeed(pkg.Source.name, pkg.Source.url!, pkg.PackageID!, false);
+        if (!pkgMetadata[0].PackageMetadata!.versions) {
+          packageVersion = pkgMetadata[0].Version;
+        } else {
+          // TODO: NuGet version range handling, see https://learn.microsoft.com/en-us/nuget/concepts/package-versioning?tabs=semver20sort#version-ranges
+          // const semver = require('semver');
+          // const versions = pkgMetadata[0].PackageMetadata!.versions;
+
+          // const validVersions = versions.filter((version: Versions) => semver.satisfies(version.version, packageVersion!));
+          // if (validVersions.length === 0) {
+          //   packageVersion = pkgMetadata[0].Version;
+          // }
+
+          // packageVersion = validVersions.sort(semver.rcompare)[0].version;
+          const versions = pkgMetadata[0].PackageMetadata!.versions;
+          const minVersion = packageVersion.split(",")[0].replace("[", "");
+          const maxVersion = packageVersion.split(",")[1].replace(")", "");
+
+          const validVersions = versions.filter((version: Versions) => version.version >= minVersion && version.version < maxVersion);
+          if (validVersions.length === 0) {
+            packageVersion = pkgMetadata[0].Version;
+          } else {
+            packageVersion = validVersions.sort((a: Versions, b: Versions) => a.version.localeCompare(b.version))[0].version;
+          }
+        }
+      } else {
+        if ((pkg.IsInstalled) && (pkg.Version === packageVersion)) {
+          output.log(`Package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} already installed`);
+
+          return;
+        }
+      }
+    } else {
       packageVersion = pkg.UpdateVersion;
 
       if (pkg.Source.name !== "Local") {
@@ -121,6 +158,16 @@ class PackageManager {
         output.logError(`Could not find package version for ${pkg.Name} in package feeds`);
 
         return;
+      }
+    }
+
+    output.log(`Checking dependencies for package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion}`);
+    const packageDependencies = await this.getPackageDependencies(pkg.PackageID!, packageVersion);
+    if (packageDependencies.length > 0) {
+      output.log(`Fetching dependencies for package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion}`);
+      for (const dependency of packageDependencies) {
+        output.log(`Downloading dependency ${dependency.ID} version ${dependency.Version}`);
+        await this.install(dependency.ID, dependency.Version);
       }
     }
 
