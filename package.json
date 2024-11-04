@@ -12,6 +12,11 @@
     "email": "info@365businessdev.com",
     "url": "https://365businessdev.com"
   },
+  "icon": "res/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/365businessdev/alget"
+  },
   "license": "MIT",
   "categories": [
     "Other"
@@ -85,7 +90,7 @@
           },
           "365businessdev.alget.enableAppSourceSymbolsFeed": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "description": "Enable the Microsoft AppSource symbols feed."
           },
           "365businessdev.alget.nugetFeeds": {
