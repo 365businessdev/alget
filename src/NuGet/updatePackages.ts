@@ -74,16 +74,29 @@ async function updatePackagesFromWorkspaceFolder(folder: vscode.WorkspaceFolder)
     output.log(`Reading AL project manifest from ${manifestPath}...`);
     try 
     {        
+        // read AL project manifest
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        await alManifest.getPackageCacheFromManifest(manifestPath, manifest).then(async (packages) => {
-            const pkgsToRestore = packages.filter((pkg) => (pkg.PackageID !== null) && (pkg.UpdateVersion) && (pkg.IsInstalled) && (pkg.Source.name !== "Local"));
-            await pkgsToRestore.forEach(async (pkg) => {
-                    output.log(`Updating package ${pkg.Name} (ID: ${pkg.PackageID}) to latest version...`);
-                    // Restore the package
-                    const packageManager = new PackageManager(workspaceSelection.getWorkspaceFolderFromManifest(vscode.Uri.file(manifestPath))!);
-                    await packageManager.install(pkg.PackageID!, undefined);
-            });
-        });
+        
+        // create package manager instance
+        const packageManager = new PackageManager(
+            workspaceSelection.getWorkspaceFolderFromManifest(
+                vscode.Uri.file(manifestPath)
+            )!
+        );
+
+        // get packages from manifest
+        const packages: Package[] = await alManifest.getPackageCacheFromManifest(manifestPath, manifest);
+
+        // set the package cache
+        packageManager.setPackageCache(packages);
+
+        // restore packages (only those that are installed, update version is available and not from local source)
+        for (const pkg of (packages.filter((pkg) => (pkg.PackageID !== null) && (pkg.UpdateVersion) && (pkg.IsInstalled) && (pkg.Source.name !== "Local")))) {
+            output.log(`Updating package ${pkg.Name} (ID: ${pkg.PackageID}) to latest version...`);
+
+            // update the package
+            await packageManager.install(pkg.PackageID!, undefined);
+        }
     } catch (error: any) {
         output.log(`Error reading AL project manifest: ${error.message}`);
 
