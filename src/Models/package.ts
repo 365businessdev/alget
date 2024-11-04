@@ -105,6 +105,7 @@ export class Package {
         this.tryFindPackageInALPackagesPath(alPackagesPath);
     }
 
+    // TODO: Move to Package Manager
     private tryFindPackageInALPackagesPath(alPackagesPath: string) {
         if (alPackagesPath === "") {
             return;
@@ -142,6 +143,7 @@ export class Package {
         }
     }
 
+    // TODO: Move to Package Manager
     private tryFindPackageInVSCodeWorkspace() {
         if (vscode.workspace.workspaceFolders === undefined) {
             return;
