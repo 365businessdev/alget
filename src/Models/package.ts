@@ -116,6 +116,7 @@ export class Package {
         if ((this.Publisher === "Microsoft") && (this.Name === "Platform")) {
             searchFileName = `${this.Publisher}_System_`;
         }
+        searchFileName = searchFileName.replace(/[/\\?%*:|"<>]/g, '-');
 
         try {
             fs.readdirSync(alPackagesPath).forEach((file) => {

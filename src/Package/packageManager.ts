@@ -275,6 +275,7 @@ class PackageManager {
       if ((pkg.Publisher === "Microsoft") && (pkg.Name === "Platform")) {
         appFileName = `${pkg.Publisher}_System_${packageVersion}.app`;
       }
+      appFileName = this.RemoveInvalidChars(appFileName);
       const appFilePath = path.join(alPackagesFolder, appFileName);
 
       // Write the .app file to the .alpackages folder
@@ -558,6 +559,13 @@ class PackageManager {
     }
 
     return false;
+  }
+
+  /// <summary>
+  /// Removes invalid characters from a file name
+  /// </summary>
+  RemoveInvalidChars(fileName: string): string {
+    return fileName.replace(/[/\\?%*:|"<>]/g, '-');
   }
 }
 
