@@ -248,6 +248,9 @@ async function checkUpdateVersionAvailable(
       }
 
       // update the package with the metadata from the feed
+      if (pkg.Description === "") {
+        pkg.Description = packages[0].Description;
+      }
       pkg.PackageMetadata = packages[0].PackageMetadata;
       pkg.Source = packages[0].Source;
 
@@ -264,6 +267,9 @@ async function checkUpdateVersionAvailable(
     }
 
     // update the package with the metadata from the feed
+    if (pkg.Description === "") {
+      pkg.Description = packages[0].Description;
+    }
     pkg.PackageMetadata = packages[0].PackageMetadata;
     pkg.Source = packages[0].Source;
 
@@ -291,6 +297,9 @@ async function checkUpdateVersionAvailable(
     }
 
     // update the package with the metadata from the feed
+    if (pkg.Description === "") {
+      pkg.Description = packages[0].Description;
+    }
     pkg.PackageMetadata = packages[0].PackageMetadata;
     pkg.Source = packages[0].Source;
 

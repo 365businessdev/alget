@@ -376,6 +376,9 @@ class PackageManager {
 
   private updatePackageMetadata(pkg: Package, feedPackageData: Package): Package {
     // update the package with the metadata from the feed
+    if (pkg.Description === "") {
+      pkg.Description = feedPackageData.Description;
+    }
     pkg.PackageMetadata = feedPackageData.PackageMetadata;
     pkg.Source = feedPackageData.Source;
 
