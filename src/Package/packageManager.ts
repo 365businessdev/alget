@@ -487,6 +487,9 @@ class PackageManager {
     // Implementation for listing all packages
   }
 
+  /// <summary>
+  /// Parses a version range string into a VersionRange object
+  /// </summary>
   parseVersionRange(range: string): VersionRange | null {
     // Handle exact version
     if ((range.split('.').length === 4) && (!range.startsWith('[')) && (!range.endsWith(']')) && (!range.startsWith('(')) && (!range.endsWith(')')) && (range.indexOf(',') === -1)) {
