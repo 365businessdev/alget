@@ -1,10 +1,9 @@
-import exp from 'constants';
 import * as vscode from 'vscode';
 
 /// <summary>
 /// The name of the extension.
 /// </summary>
-export const ExtensionName = "365businessdev.alget";
+export const ExtensionName = "365businessdev-alget";
 
 /// <summary>
 /// The prefix for the output channel.
