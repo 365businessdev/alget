@@ -5,6 +5,7 @@ import * as alManifest from '../Common/manifest';
 import path from 'path';
 import PackageManager from '../Package/packageManager';
 import fs = require('fs');
+import { Package } from '../Models/package';
 
 /// <summary>
 /// Updates the NuGet packages in the workspace.
