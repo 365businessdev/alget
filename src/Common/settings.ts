@@ -49,7 +49,7 @@ export const AppSourceSymbolsFeedUrl = "https://dynamicssmb2.pkgs.visualstudio.c
 /// Returns the country code for packages from the settings.
 /// </summary>
 export function getCountryCode(): string {
-    const configuration = vscode.workspace.getConfiguration(ExtensionName);
+    const configuration = vscode.workspace.getConfiguration("365businessdev.alget");
 
     try {
         return configuration["countryCode"];
@@ -63,7 +63,7 @@ export function getCountryCode(): string {
 /// Specifies whether the Microsoft Symbols feed is enabled.
 /// </summary>
 export function isMSSymbolsFeedEnabled(): boolean {
-    const configuration = vscode.workspace.getConfiguration(ExtensionName);
+    const configuration = vscode.workspace.getConfiguration("365businessdev.alget");
 
     try {
         return configuration["enableMSSymbolsFeed"];
@@ -77,7 +77,7 @@ export function isMSSymbolsFeedEnabled(): boolean {
 /// Specifies whether the AppSource Symbols feed is enabled.
 /// </summary>
 export function isAppSourceSymbolsFeedEnabled(): boolean {
-    const configuration = vscode.workspace.getConfiguration(ExtensionName);
+    const configuration = vscode.workspace.getConfiguration("365businessdev.alget");
 
     try {
         return configuration["enableAppSourceSymbolsFeed"];
@@ -91,7 +91,7 @@ export function isAppSourceSymbolsFeedEnabled(): boolean {
 /// Returns the custom feeds from the settings.
 /// </summary>
 export function getCustomFeeds(): any[] {
-    const configuration = vscode.workspace.getConfiguration(ExtensionName);
+    const configuration = vscode.workspace.getConfiguration("365businessdev.alget");
 
     try {
         return configuration["nugetFeeds"];
