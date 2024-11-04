@@ -7,6 +7,7 @@
   "engines": {
     "vscode": "^1.94.0"
   },
+  "publisher": "365businessdevelopment",
   "author": {
     "name": "Christoph Krieg",
     "email": "info@365businessdev.com",
