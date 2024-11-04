@@ -56,7 +56,11 @@ export async function fetchPackagesFromFeed(packageSource: PackageSource, packag
 
             let appId : string | undefined = undefined;
             try {
-                appId = (nugetPackage.id as string).split('.')[3];                
+                const nugetPackageIdParts: string[] = (nugetPackage.id as string).split('.');
+                appId = nugetPackageIdParts[nugetPackageIdParts.length - 1];
+                if (!isGuid(appId)) {
+                    appId = undefined;
+                }
             } catch {
                 appId = undefined;
             }
@@ -81,4 +85,12 @@ export async function fetchPackagesFromFeed(packageSource: PackageSource, packag
         console.error('Error fetching packages:', error);
         return [];
     }
+}
+
+/// <summary>
+/// Checks if a string is a valid GUID
+/// </summary>
+function isGuid(value: string): boolean {
+  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return guidRegex.test(value);
 }
