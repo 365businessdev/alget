@@ -45,9 +45,10 @@ It also provides information about packages, including dependencies and versions
 | Configuration | Description | Setting | Default Value |
 | --- | --- | --- | --- |
 | Country Code | Specifies the localization of NuGet packages to use. | `365businessdev.alget.countryCode` | `W1` |
-| Enable Microsoft Symbols Feed | Specifies whether to enable the public Microsoft Symbols feed. | `365businessdev.alget.enableMicrosoftSymbolsFeed` | `true` |
-| Enable Microsoft AppSource Symbols Feed | Specifies whether to enable the Microsoft AppSource Symbols feed. | `365businessdev.alget.enableMicrosoftAppSourceSymbolsFeed` | `true` |
-| Custom NuGet Feeds | Specifies custom NuGet feeds to use. | `365businessdev.alget.customNuGetFeeds` | `[]` |
+| Prefer Apps over Symbols | Specifies whether to prefer apps over symbols when installing packages. | `365businessdev.alget.preferMSAppsOverSymbols` | `true` |
+| Enable Microsoft Apps and Symbols Feed | Specifies whether to enable the public Microsoft feeds. | `365businessdev.alget.enableMicrosoftFeeds` | `true` |
+| Enable Microsoft AppSource Symbols Feed | Specifies whether to enable the Microsoft AppSource Symbols feed. | `365businessdev.alget.enableAppSourceSymbolsFeed` | `true` |
+| Custom NuGet Feeds | Specifies custom NuGet feeds to use. | `365businessdev.alget.nugetFeeds` | `[]` |
 
 ### Custom NuGet Feeds
 
@@ -58,11 +59,11 @@ Custom NuGet feeds can be added to the configuration. The following properties a
 | Name | The name of the feed. | `string` | Yes |
 | Url | The URL of the feed. | `string` | Yes |
 | API Key | The API key used to authenticate with the private feed. | `string` | No |
-| Package ID Schema | Specifies the pattern used to create NuGet package IDs in this feed. Omit this parameter to use default schema `{publisher}.{name}.symbols.{appId}` | `string` | No |
+| Package ID Schema | Specifies the pattern used to create NuGet package IDs in this feed. Omit this parameter to use default schema `{publisher}.{name}[.symbols].{appId}` | `string` | No |
 
 ```json
 {
-    "365businessdev.alget.customNuGetFeeds": [
+    "365businessdev.alget.nugetFeeds": [
         {
             "name": "My Custom Feed",
             "url": "https://mycustomfeed.com/v3/index.json",

@@ -27,14 +27,41 @@ export async function fetchPackagesFromFeed(packageSource: PackageSource, packag
             throw new Error('The feed URL is not defined.');
         }
 
-        packageName = packageName.replaceAll(' ', '');
+        // Remove spaces and special characters from the package name
+        packageName = packageName.replaceAll(' ', '').replace(/[/\\?%*:|"<>]/g, '');;
 
-        // Get the search URL for the feed
-        const searchUrl = await getServiceUrl(packageSource.url, 'SearchQueryService') + `?q=${packageName}&prerelease=${prerelease}`;
-        console.log(`URL: ${searchUrl}`);
-        // Fetch packages using the search URL
-        const searchResponse = await axios.get(searchUrl);
-        const nugetPackages = searchResponse.data.data;
+        let nugetPackages: any[] = [];
+        if ((packageSource.name === settings.MSSymbolsFeedName) && (settings.preferMSAppsOverSymbols())) {
+            try {
+                // Fetch packages from both Microsoft feeds
+                const [msAppsResponse, msSymbolsResponse] = await Promise.allSettled([
+                    axios.get(await getServiceUrl(settings.MSAppsFeedUrl, 'SearchQueryService') + `?q=${packageName.replace('.symbols','')}&prerelease=${prerelease}`),
+                    axios.get(await getServiceUrl(packageSource.url, 'SearchQueryService') + `?q=${packageName}&prerelease=${prerelease}`)
+                ]);
+
+                if (msAppsResponse.status === 'fulfilled' && msAppsResponse.value.data.data.length > 0) {
+                    nugetPackages = msAppsResponse.value.data.data;
+
+                    // change the package source to MS Apps feed
+                    packageSource = new PackageSource(
+                        settings.MSAppsFeedName,
+                        settings.MSAppsFeedUrl
+                    );
+                } else if (msSymbolsResponse.status === 'fulfilled') {
+                    nugetPackages = msSymbolsResponse.value.data.data;
+                }
+            } catch (error) {
+                console.error('Error fetching packages from feeds:', error);
+            }
+        } 
+        
+        if (nugetPackages.length === 0) {
+            // Get the search URL for the feed
+            const searchUrl = await getServiceUrl(packageSource.url!, 'SearchQueryService') + `?q=${packageName}&prerelease=${prerelease}`;
+            // Fetch packages using the search URL
+            const searchResponse = await axios.get(searchUrl);
+            nugetPackages = searchResponse.data.data;
+        }
 
         let configCountryCode = settings.getCountryCode().toLowerCase();
         let result: Package[] = [];

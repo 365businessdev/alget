@@ -84,10 +84,15 @@
             "default": "w1",
             "description": "Country code to be used for localized NuGet packages."
           },
-          "365businessdev.alget.enableMSSymbolsFeed": {
+          "365businessdev.alget.preferMSAppsOverSymbols": {
             "type": "boolean",
             "default": true,
-            "description": "Enable the Microsoft symbols feed."
+            "description": "Specify to prefer get Microsoft packages from MSApps feed over MSSymbols feed."
+          },
+          "365businessdev.alget.enableMicrosoftFeeds": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable the Microsoft apps and symbols feed."
           },
           "365businessdev.alget.enableAppSourceSymbolsFeed": {
             "type": "boolean",

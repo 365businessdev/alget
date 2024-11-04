@@ -36,6 +36,16 @@ export const MSSymbolsFeedName = "MSSymbols";
 export const MSSymbolsFeedUrl = "https://dynamicssmb2.pkgs.visualstudio.com/DynamicsBCPublicFeeds/_packaging/MSSymbols/nuget/v3/index.json";
 
 /// <summary>
+/// Gets the Microsoft Apps feed name.
+/// </summary>
+export const MSAppsFeedName = "MSApps";
+
+/// <summary>
+/// Gets the Microsoft Apps feed URL.
+/// </summary>
+export const MSAppsFeedUrl = "https://dynamicssmb2.pkgs.visualstudio.com/DynamicsBCPublicFeeds/_packaging/MSApps/nuget/v3/index.json";
+
+/// <summary>
 /// Gets the AppSource Symbols feed name.
 /// </summary>
 export const AppSourceSymbolsFeedName = "AppSourceSymbols";
@@ -46,13 +56,18 @@ export const AppSourceSymbolsFeedName = "AppSourceSymbols";
 export const AppSourceSymbolsFeedUrl = "https://dynamicssmb2.pkgs.visualstudio.com/DynamicsBCPublicFeeds/_packaging/AppSourceSymbols/nuget/v3/index.json";
 
 /// <summary>
+/// Returns the extension configuration.
+/// </summary>
+function getExtensionConfiguration(): vscode.WorkspaceConfiguration {
+    return vscode.workspace.getConfiguration("365businessdev.alget");
+}
+
+/// <summary>
 /// Returns the country code for packages from the settings.
 /// </summary>
 export function getCountryCode(): string {
-    const configuration = vscode.workspace.getConfiguration("365businessdev.alget");
-
     try {
-        return configuration["countryCode"];
+        return getExtensionConfiguration()["countryCode"];
     } catch (error) {
         vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
         return "";
@@ -62,11 +77,21 @@ export function getCountryCode(): string {
 /// <summary>
 /// Specifies whether the Microsoft Symbols feed is enabled.
 /// </summary>
-export function isMSSymbolsFeedEnabled(): boolean {
-    const configuration = vscode.workspace.getConfiguration("365businessdev.alget");
-
+export function preferMSAppsOverSymbols(): boolean {
     try {
-        return configuration["enableMSSymbolsFeed"];
+        return getExtensionConfiguration()["preferMSAppsOverSymbols"];
+    } catch (error) {
+        vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
+        return false;
+    }
+}
+
+/// <summary>
+/// Specifies whether the Microsoft Apps and Symbols feed are enabled.
+/// </summary>
+export function isMicrosoftFeedsEnabled(): boolean {
+    try {
+        return getExtensionConfiguration()["enableMicrosoftFeeds"];
     } catch (error) {
         vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
         return false;
@@ -77,10 +102,8 @@ export function isMSSymbolsFeedEnabled(): boolean {
 /// Specifies whether the AppSource Symbols feed is enabled.
 /// </summary>
 export function isAppSourceSymbolsFeedEnabled(): boolean {
-    const configuration = vscode.workspace.getConfiguration("365businessdev.alget");
-
     try {
-        return configuration["enableAppSourceSymbolsFeed"];
+        return getExtensionConfiguration()["enableAppSourceSymbolsFeed"];
     } catch (error) {
         vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
         return false;
@@ -91,10 +114,8 @@ export function isAppSourceSymbolsFeedEnabled(): boolean {
 /// Returns the custom feeds from the settings.
 /// </summary>
 export function getCustomFeeds(): any[] {
-    const configuration = vscode.workspace.getConfiguration("365businessdev.alget");
-
     try {
-        return configuration["nugetFeeds"];
+        return getExtensionConfiguration()["nugetFeeds"];
     } catch (error) {
         vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
         return [];

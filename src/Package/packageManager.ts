@@ -27,16 +27,46 @@ class PackageManager {
   }
 
   private async findPackage(packageId: string): Promise<Package | undefined> {
-    let pkg = this.packages.find((p) => p.PackageID === packageId);
-    if (!pkg) {
-      this.packages = await this.loadPackages(packageId);
+    let pkg: Package | undefined = undefined;
+
+    if ((packageId.toLowerCase().startsWith("microsoft.")) && (packageId.toLowerCase().indexOf(".symbols") > -1)) {
+      let nonSymbolPackageId = packageId.replace(".symbols", "");
+
+      // TODO: Find a better way to handle this
+      pkg = this.packages.find((p) => p.PackageID === nonSymbolPackageId);
+      if (!pkg) {
+        this.packages = await this.loadPackages(nonSymbolPackageId);
+        pkg = this.packages.find((p) => p.PackageID === nonSymbolPackageId);
+        if (!pkg) {
+          pkg = this.packages.find((p) => p.PackageID === packageId);
+          if (!pkg) {
+            this.packages = await this.loadPackages(packageId);
+            pkg = this.packages.find((p) => p.PackageID === packageId);
+            if (!pkg) {
+              output.logError(`Package ${packageId} not found`);
+      
+              return undefined;
+            }
+          }
+        }
+      }
+    } else {
       pkg = this.packages.find((p) => p.PackageID === packageId);
       if (!pkg) {
-        output.logError(`Package ${packageId} not found`);
-
-        return undefined;
+        this.packages = await this.loadPackages(packageId);
+        pkg = this.packages.find((p) => p.PackageID === packageId);
+        if (!pkg) {
+          output.logError(`Package ${packageId} not found`);
+  
+          return undefined;
+        }
       }
     }
+
+    if ((pkg.PackageID !== null) && (pkg.Source.name === settings.MSAppsFeedName)) {
+      pkg.PackageID = pkg.PackageID.replace(".symbols", "");
+    }
+
     return pkg;
   }
 
@@ -52,7 +82,7 @@ class PackageManager {
 
     let pkgs: Package[] = [];
 
-    if (settings.isMSSymbolsFeedEnabled()) {
+    if (settings.isMicrosoftFeedsEnabled()) {
       output.log(
         `Fetching packages from '${settings.MSSymbolsFeedUrl}' feed url`
       );
