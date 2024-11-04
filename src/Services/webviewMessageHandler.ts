@@ -46,7 +46,7 @@ export default class WebviewMessageHandler {
   public async loadPackages(filterString: string | undefined = undefined): Promise<void> {
     this.webview.postMessage({ command: "initPackageList", data: "browse" });
 
-    await this.packageManager.loadPackages(filterString).then((packages) => {
+    await this.packageManager.loadPackages(filterString, true).then((packages) => {
       this.packages = packages;
 
       this.webview.postMessage({

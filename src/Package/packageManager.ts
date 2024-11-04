@@ -26,11 +26,27 @@ class PackageManager {
     this.projectWorkspaceFolder = projectWorkspaceFolder;
   }
 
+  private async findPackage(packageId: string): Promise<Package | undefined> {
+    let pkg = this.packages.find((p) => p.PackageID === packageId);
+    if (!pkg) {
+      this.packages = await this.loadPackages(packageId);
+      pkg = this.packages.find((p) => p.PackageID === packageId);
+      if (!pkg) {
+        output.logError(`Package ${packageId} not found`);
+
+        return undefined;
+      }
+    }
+    return pkg;
+  }
+
   /// <summary>
   /// Loads the packages from the configured feeds
   /// </summary>
-  public async loadPackages(filterString: string | undefined = undefined): Promise<Package[]> {
-    this.packages = [];
+  public async loadPackages(filterString: string | undefined = undefined, resetList: boolean = false): Promise<Package[]> {
+    if (resetList) {
+      this.packages = [];
+    }
 
     output.log("Loading packages from feeds");
 
@@ -110,15 +126,9 @@ class PackageManager {
   /// Installs a package
   /// </summary>
   async install(packageId: string, packageVersion: string | undefined): Promise<void> {
-    let pkg = this.packages.find((p) => p.PackageID === packageId);
-    if (!pkg) {
-      this.packages = await this.loadPackages(packageId);
-      pkg = this.packages.find((p) => p.PackageID === packageId);
-      if (!pkg) {
-        output.logError(`Package ${packageId} not found`);
-
-        return;
-      }
+    let pkg = await this.findPackage(packageId);
+    if (pkg === undefined) {
+      return;
     }
 
     if (packageVersion !== undefined) {
@@ -186,13 +196,14 @@ class PackageManager {
         if (validVersions.length === 0) {
           packageVersion = pkg.Version;
         } else {
-          packageVersion = validVersions.sort((a: Versions, b: Versions) => a.version.localeCompare(b.version))[0].version;
+          const sortedVersions: Versions[] = validVersions.sort((a: Versions, b: Versions) => a.version.localeCompare(b.version));
+          packageVersion = sortedVersions[sortedVersions.length - 1].version;
         }
       }
     } else {
       packageVersion = pkg.UpdateVersion;
 
-      if (pkg.Source.name !== "Local") {
+      if ((packageVersion === undefined) && (pkg.Source.name !== "Local")) {
         packageVersion = pkg.Version;
       }
 
@@ -206,17 +217,23 @@ class PackageManager {
     output.log(`Checking dependencies for package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion}`);
     const packageDependencies = await this.getPackageDependencies(pkg.PackageID!, packageVersion);
     if (packageDependencies.length > 0) {
-      const manifestPath = path.join(
-        this.projectWorkspaceFolder.uri.fsPath,
-        "app.json"
-      );
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-      this.packages.push(... await getPackageCacheFromManifest(manifestPath, manifest));
+      // const manifestPath = path.join(
+      //   this.projectWorkspaceFolder.uri.fsPath,
+      //   "app.json"
+      // );
+      //const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      //this.packages.push(... await getPackageCacheFromManifest(manifestPath, manifest));
       output.log(`Fetching dependencies for package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion}`);
       for (const dependency of packageDependencies) {
-        output.log(`Downloading dependency ${dependency.ID} version ${dependency.Version}`);
-        await this.install(dependency.ID, dependency.Version);
+        if (!(this.packages.find((p) => p.PackageID === dependency.ID && p.IsInstalled))) {
+          output.log(`Downloading dependency ${dependency.ID} version ${dependency.Version}`);
+          await this.install(dependency.ID, dependency.Version);
+        }
       }
+    }
+
+    if ((packageVersion === pkg.Version) && (pkg.IsInstalled)) {
+      return; // already installed
     }
 
     output.log(`Downloading package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} from ${pkg.Source.name} feed`);
@@ -262,34 +279,41 @@ class PackageManager {
 
       // Write the .app file to the .alpackages folder
       const content: Buffer = await appFileData.async("nodebuffer");
-      fs.writeFile(
-        appFilePath,
-        content,
-        (err: NodeJS.ErrnoException | null) => {
-          if (err) {
-            output.logError(
-              `Failed to write ${appFileName}: ${err.message}`
-            );
-            return;
-          }
-          output.log(`${pkg.Name} downloaded to '${appFilePath}'`);
+      try {
+        fs.writeFileSync(
+          appFilePath,
+          content
+        );
+        
+        output.log(`${pkg.Name} downloaded to '${appFilePath}'`);
 
-          if (pkg.ID === undefined) {
+        switch (true) {
+          case ((pkg.ID === undefined) && (pkg.Publisher.toLowerCase() !== "microsoft")):
             output.logError(`Unable to add package ${pkg.Name} to AL project dependencies. App ID is missing in package metadata. Please report this to the package publisher.`);
-          } else {
+            break;
+          case ((pkg.ID !== undefined) && (!this.isMicrosoftSystemOrBaseApp(pkg))):
             // Update manifest file
             const manifestPath = path.join(
               this.projectWorkspaceFolder.uri.fsPath,
               "app.json"
             );
             addDependencyToManifest(manifestPath, pkg.ID, pkg.Name, pkg.Publisher, packageVersion);
-          }
+            break;
         }
-      );
+
+        pkg.IsInstalled = true;
+        pkg.Version = packageVersion;
+        const packageIndex = this.packages.findIndex((p) => p.PackageID === pkg.PackageID);
+        if (packageIndex !== -1) {
+            this.packages[packageIndex] = pkg;
+        }
+      } catch (error) {
+        output.logError(`Failed to write ${appFileName}: ${error}`);
+
+        return;
+      }
     } catch (error) {
-      output.logError(
-        `Error extracting .app file from package ${pkg.Name}: ${error}`
-      );
+      output.logError(`Error extracting .app file from NuGet package ${pkg.Name}: ${error}`);
     }
   }
 
@@ -297,16 +321,11 @@ class PackageManager {
   /// Gets the dependencies of a package
   /// </summary>
   async getPackageDependencies(packageId: string, packageVersion: string): Promise<PackageDependency[]> {
-    let pkg = this.packages.find((p) => p.PackageID === packageId);
-    if (!pkg) {
-      this.packages = await this.loadPackages(packageId);
-      pkg = this.packages.find((p) => p.PackageID === packageId);
-      if (!pkg) {
-        output.logError(`Package ${packageId} not found`);
-
-        return [];
-      }
+    let pkg = await this.findPackage(packageId);
+    if (pkg === undefined) {
+      return [];
     }
+    
     packageVersion = pkg.UpdateVersion ? pkg.UpdateVersion : packageVersion;
     output.log(`Downloading package manifest ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} from ${pkg.Source.name} feed`);
     if (pkg.PackageID === null) {
@@ -465,9 +484,18 @@ class PackageManager {
   }
 
   parseVersionRange(range: string): VersionRange | null {
+    // Handle exact version
+    if ((range.split('.').length === 4) && (!range.startsWith('[')) && (!range.endsWith(']')) && (!range.startsWith('(')) && (!range.endsWith(')')) && (range.indexOf(',') === -1)) {
+      return {
+        minVersion: range,
+        maxVersion: range,
+        isMinInclusive: true,
+        isMaxInclusive: true
+      };
+    }
     // Handle simple min. version
     if ((/^\d+\.\d+(\.\d+)?(\.\d+)?$/.test(range))) {
-      const version = range.replace(/[\[\]]/g, ''); // Remove brackets if present
+      const version = range;
       const parts = version.split('.');
       while (parts.length < 4) {
         parts.push('0');
@@ -511,6 +539,22 @@ class PackageManager {
       isMinInclusive: range.startsWith('['),
       isMaxInclusive: range.endsWith(']')
     };
+  }
+
+  private isMicrosoftSystemOrBaseApp(pkg: Package): boolean {
+    if (pkg.Publisher.toLowerCase() !== "microsoft") {
+      return false;
+    }
+
+    if (
+      (pkg.ID === "437dbf0e-84ff-417a-965d-ed2bb9650972") || // Base Application
+      (pkg.ID === "f3552374-a1f2-4356-848e-196002525837") || // Business Foundation
+      (pkg.ID === "63ca2fa4-4f03-4f2b-a480-172fef340d3f") // System Application
+    ) {
+      return true;
+    }
+
+    return false;
   }
 }
 
