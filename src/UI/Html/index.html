@@ -292,10 +292,13 @@
           }
         }
 
-        // TODO: Read icon url from package metadata
-        packageData.IconPath = NuGetIconPath;
-        if (packageData.Publisher === "Microsoft") {
-          packageData.IconPath = MicrosoftIconPath;
+        if ((packageData.PackageMetadata) && (packageData.PackageMetadata.iconUrl) && (packageData.PackageMetadata.iconUrl !== "")) {
+          packageData.IconPath = packageData.PackageMetadata.iconUrl;
+        } else {
+          packageData.IconPath = NuGetIconPath;
+          if (packageData.Publisher === "Microsoft") {
+            packageData.IconPath = MicrosoftIconPath;
+          }
         }
 
         let elementAction = "";
