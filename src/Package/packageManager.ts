@@ -294,11 +294,18 @@ class PackageManager {
             break;
           case ((pkg.ID !== undefined) && (!this.isMicrosoftSystemOrBaseApp(pkg))):
             // Update manifest file
-            const manifestPath = path.join(
-              this.projectWorkspaceFolder.uri.fsPath,
-              "app.json"
+            const manifest = new ALManifest(
+              path.join(
+                this.projectWorkspaceFolder.uri.fsPath,
+                "app.json"
+              )
             );
-            addDependencyToManifest(manifestPath, pkg.ID, pkg.Name, pkg.Publisher, packageVersion);
+            manifest.addDependencySync({
+              id: pkg.ID,
+              name: pkg.Name,
+              publisher: pkg.Publisher,
+              version: packageVersion
+            });
             break;
         }
 

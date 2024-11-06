@@ -55,7 +55,7 @@ export function getCountryCode(): string {
         return configuration["countryCode"];
     } catch (error) {
         vscode.window.showErrorMessage(`Error parsing ALGet settings: ${error}`);
-        return "";
+        return "w1";
     }
 }
 

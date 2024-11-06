@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
+import path from 'path';
+import fs = require('fs');
 import * as workspaceSelection from "../UI/workspaceSelection";
 import * as output from '../output';
-import * as alManifest from '../Common/manifest';
-import path from 'path';
-import PackageManager from '../Package/packageManager';
-import fs = require('fs');
+import { ALManifest } from '../Common/manifest';
+import { PackageManager } from '../Package/packageManager';
 import { Package } from '../Models/package';
 
 /// <summary>
@@ -76,8 +76,7 @@ async function restorePackagesFromWorkspaceFolder(folder: vscode.WorkspaceFolder
     output.log(`Reading AL project manifest from ${manifestPath}...`);
     try 
     {
-        // read AL project manifest
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        const manifest = new ALManifest(manifestPath);
         
         // create package manager instance
         const packageManager = new PackageManager(
@@ -87,7 +86,7 @@ async function restorePackagesFromWorkspaceFolder(folder: vscode.WorkspaceFolder
         );
 
         // get packages from manifest
-        const packages: Package[] = await alManifest.getPackageCacheFromManifest(manifestPath, manifest);
+        const packages: Package[] = await manifest.getPackagesAsync();
 
         // set the package cache
         packageManager.setPackageCache(packages);

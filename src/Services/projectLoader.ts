@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as projectManifest from '../Common/manifest';
 import * as output from '../output';
 import { Project } from "../Models/project";
+import { ALManifest } from '../Common/manifest';
 
 export default class ProjectLoader {
     /// <summary>
@@ -21,14 +21,14 @@ export default class ProjectLoader {
 
         try 
         {
-            let manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-            let packages = await projectManifest.getPackageCacheFromManifest(manifestPath, manifest);
+            const manifest = new ALManifest(manifestPath);
+            const packages = await manifest.getPackagesAsync();
         
             return {
-                id: manifest.id,
-                publisher: manifest.publisher,
-                name: manifest.name,
-                version: manifest.version,
+                id: manifest.Content().id,
+                publisher: manifest.Content().publisher,
+                name: manifest.Content().name,
+                version: manifest.Content().version,
                 fsPath: projectFolder,
                 packages: packages,
             };
