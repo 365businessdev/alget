@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import * as settings from "../Common/settings";
+import { Settings } from "../Common/settings";
 import * as output from "../output";
 import { fetchPackagesFromFeed } from "../NuGet/fetchPackages";
 import { downloadPackage } from "../NuGet/downloadPackage";
@@ -56,30 +56,30 @@ export class PackageManager {
 
     let pkgs: Package[] = [];
 
-    if (settings.isMSSymbolsFeedEnabled()) {
+    if (Settings.isMSSymbolsFeedEnabled()) {
       output.log(
-        `Fetching packages from '${settings.MSSymbolsFeedUrl}' feed url`
+        `Fetching packages from '${Settings.MSSymbolsFeedUrl}' feed url`
       );
       pkgs = await fetchPackagesFromFeed(
         new PackageSource(
-          settings.MSSymbolsFeedName,
-          settings.MSSymbolsFeedUrl
+          Settings.MSSymbolsFeedName,
+          Settings.MSSymbolsFeedUrl
         ),
-        filterString === undefined ? `.${settings.getCountryCode().toUpperCase() || ""}.` : filterString,
+        filterString === undefined ? `.${Settings.getCountryCode().toUpperCase() || ""}.` : filterString,
         false
       );
       output.log(`${pkgs.length} packages received from feed`);
       this.packages.push(...pkgs);
     }
 
-    if (settings.isAppSourceSymbolsFeedEnabled()) {
+    if (Settings.isAppSourceSymbolsFeedEnabled()) {
       output.log(
-        `Fetching packages from '${settings.AppSourceSymbolsFeedUrl}' feed url`
+        `Fetching packages from '${Settings.AppSourceSymbolsFeedUrl}' feed url`
       );
       pkgs = await fetchPackagesFromFeed(
         new PackageSource(
-          settings.AppSourceSymbolsFeedName,
-          settings.AppSourceSymbolsFeedUrl
+          Settings.AppSourceSymbolsFeedName,
+          Settings.AppSourceSymbolsFeedUrl
         ),
         filterString === undefined ? "" : filterString,
         false
@@ -99,7 +99,7 @@ export class PackageManager {
   private async loadPackagesFromCustomFeedsAsync(filterString: string | undefined = undefined): Promise<Package[]> {
     let packages: Package[] = [];
 
-    const customFeeds = settings.getCustomFeeds();
+    const customFeeds = Settings.getCustomFeeds();
     for (const feed of customFeeds) {
       output.log(`Fetching packages from '${feed.url}' feed url`);
       const pkgs = await fetchPackagesFromFeed(
@@ -372,7 +372,7 @@ export class PackageManager {
         if (pkg.CountryCode !== "") {
           countryCode = pkg.CountryCode;
         } else {
-          countryCode = settings.getCountryCode();
+          countryCode = Settings.getCountryCode();
         }
         dependency.$.id = `Microsoft.Application.${countryCode.toUpperCase()}.symbols`;
       }
@@ -411,8 +411,8 @@ export class PackageManager {
       if (pkg.Publisher.toLowerCase() === "microsoft") {
         packages = await fetchPackagesFromFeed(
           new PackageSource(
-            settings.MSSymbolsFeedName,
-            settings.MSSymbolsFeedUrl
+            Settings.MSSymbolsFeedName,
+            Settings.MSSymbolsFeedUrl
           ),
           pkg.PackageID,
           false
@@ -424,8 +424,8 @@ export class PackageManager {
 
       packages = await fetchPackagesFromFeed(
         new PackageSource(
-          settings.AppSourceSymbolsFeedName,
-          settings.AppSourceSymbolsFeedUrl
+          Settings.AppSourceSymbolsFeedName,
+          Settings.AppSourceSymbolsFeedUrl
         ),
         pkg.PackageID,
         false
@@ -434,7 +434,7 @@ export class PackageManager {
         return PackageManager.updatePackageMetadata(pkg, packages[0]);
       }
 
-      for (const feed of (settings.getCustomFeeds() as PackageSource[])) {
+      for (const feed of (Settings.getCustomFeeds() as PackageSource[])) {
         // transform package ID based on the package source schema
         const packageId = feed.packageIDSchema !== "" ? 
           feed.packageIDSchema.toLowerCase()

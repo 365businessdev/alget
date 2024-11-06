@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import * as settings from "../Common/settings";
 import * as output from "../output";
+import { Settings } from "../Common/settings";
 import WebviewMessageHandler from "../Services/webviewMessageHandler";
 
 export default class PackageManager {
@@ -54,12 +54,14 @@ export default class PackageManager {
     this.projectWorkspaceFolder = projectWorkspaceFolder;
     this.extensionPath = extensionPath;
 
+    Settings.setExtensionConfigurationScope(projectWorkspaceFolder.uri);
+
     const projectName = path.basename(projectWorkspaceFolder.uri.fsPath);
     output.log(`Loading AL project '${projectName}'`);
     
     this.panel = vscode.window.createWebviewPanel(
       PackageManager.viewType,
-      `${settings.ExtensionWebviewName}: ${projectName}`,
+      `${Settings.ExtensionWebviewName}: ${projectName}`,
       column,
       {
         enableScripts: true,

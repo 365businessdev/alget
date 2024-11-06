@@ -1,4 +1,4 @@
-import * as settings from '../Common/settings';
+import { Settings } from '../Common/settings';
 import { getServiceUrl } from './packageIndex';
 import { Package } from '../Models/package';
 import { PackageSource } from '../Models/package-source';
@@ -10,8 +10,8 @@ import { invokePackageAPIRequestAsync } from './invokePackageAPIRequest';
 export async function fetchPackages(packageName: string, prerelease: boolean) {
     fetchPackagesFromFeed(
         new PackageSource(
-            settings.NuGetOrgFeedName,
-            settings.NuGetOrgFeedUrl
+            Settings.NuGetOrgFeedName,
+            Settings.NuGetOrgFeedUrl
         ),
         packageName,
         prerelease
@@ -35,7 +35,7 @@ export async function fetchPackagesFromFeed(packageSource: PackageSource, packag
         const searchResponse = await invokePackageAPIRequestAsync(searchUrl, packageSource);
         const nugetPackages = searchResponse.data;
 
-        let configCountryCode = settings.getCountryCode().toLowerCase();
+        let configCountryCode = Settings.getCountryCode().toLowerCase();
         let result: Package[] = [];
         
         nugetPackages.forEach((nugetPackage: any) => {

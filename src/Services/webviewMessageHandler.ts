@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import * as settings from "../Common/settings";
+import { Settings } from "../Common/settings";
 import { ExtensionMessage } from "../Models/extension-message";
 import { DataMessage, InstallMessage, UIMessage } from "../Models/ui-message";
 
@@ -144,7 +144,7 @@ export default class WebviewMessageHandler {
   private openSettings(): void {
     vscode.commands.executeCommand(
       "workbench.action.openSettings",
-      `@ext:${settings.ExtensionName}`
+      `@ext:${Settings.ExtensionName}`
     );
   }
 

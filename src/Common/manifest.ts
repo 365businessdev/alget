@@ -1,6 +1,6 @@
 import fs = require("fs");
 import path = require("path");
-import * as settings from "./settings";
+import { Settings } from "./settings";
 import { Package } from "../Models/package";
 import { PackageSource } from "../Models/package-source";
 import { ManifestModel } from "../Models/manifest";
@@ -121,9 +121,12 @@ export class ALManifest {
       throw new Error("Application not found in the manifest");
     }
   
-    let countryCode = settings.getCountryCode().toUpperCase();
+    let countryCode = Settings.getCountryCode().toUpperCase();
     if (countryCode === "W1") {
       countryCode = "";
+    }
+    if (countryCode !== "") {
+      countryCode = `.${countryCode}`;
     }
     let projectPath = path.dirname(this.manifest.path);
     let alPackagesPath = path.join(projectPath, ".alpackages");
