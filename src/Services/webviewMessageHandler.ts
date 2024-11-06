@@ -1,12 +1,12 @@
 import * as vscode from "vscode";
-import * as settings from "../Common/settings";
+import { Settings } from "../Common/settings";
 import { ExtensionMessage } from "../Models/extension-message";
 import { DataMessage, InstallMessage, UIMessage } from "../Models/ui-message";
 
 import ProjectLoader from "./projectLoader";
 import * as output from "../output";
 import { Package } from "../Models/package";
-import PackageManager from "../Package/packageManager";
+import { PackageManager } from '../Package/packageManager';
 
 export default class WebviewMessageHandler {
   private packages: Package[] = [];
@@ -46,7 +46,7 @@ export default class WebviewMessageHandler {
   public async loadPackages(filterString: string | undefined = undefined): Promise<void> {
     this.webview.postMessage({ command: "initPackageList", data: "browse" });
 
-    await this.packageManager.loadPackages(filterString, true).then((packages) => {
+    await this.packageManager.loadPackagesAsync(filterString, true).then((packages) => {
       this.packages = packages;
 
       this.webview.postMessage({
@@ -89,7 +89,7 @@ export default class WebviewMessageHandler {
   /// </summary>
   private addPackage(message: InstallMessage): void {
     //this.packageManager.setPackageCache(this.packages);
-    this.packageManager.install(message.packageId, message.packageVersion).then(() =>{    
+    this.packageManager.installPackageAsync(message.packageId, message.packageVersion).then(() =>{    
       // reset package list and reload project
       this.packages = [];
       this.loadProject();
@@ -101,7 +101,7 @@ export default class WebviewMessageHandler {
   /// </summary>
   private getPackageDependencies(message: InstallMessage): void {
     //this.packageManager.setPackageCache(this.packages);
-    this.packageManager.getPackageDependencies(
+    this.packageManager.getPackageDependenciesAsync(
       message.packageId,
       message.packageVersion
     ).then((dependencies) => {
@@ -144,7 +144,7 @@ export default class WebviewMessageHandler {
   private openSettings(): void {
     vscode.commands.executeCommand(
       "workbench.action.openSettings",
-      `@ext:${settings.ExtensionName}`
+      `@ext:${Settings.ExtensionName}`
     );
   }
 

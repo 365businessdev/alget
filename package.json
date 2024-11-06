@@ -2,7 +2,7 @@
   "name": "365businessdev-alget",
   "displayName": "ALGet",
   "description": "NuGet package manager for Microsoft Dynamics 365 Business Central AL development.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "preview": true,
   "engines": {
     "vscode": "^1.94.0"
@@ -82,21 +82,25 @@
           "365businessdev.alget.countryCode": {
             "type": "string",
             "default": "w1",
-            "description": "Country code to be used for localized NuGet packages."
+            "description": "Country code to be used for localized NuGet packages.",
+            "scope": "resource"
           },
           "365businessdev.alget.enableMSSymbolsFeed": {
             "type": "boolean",
             "default": true,
-            "description": "Enable the Microsoft symbols feed."
+            "description": "Enable the Microsoft symbols feed.",
+            "scope": "resource"
           },
           "365businessdev.alget.enableAppSourceSymbolsFeed": {
             "type": "boolean",
             "default": true,
-            "description": "Enable the Microsoft AppSource symbols feed."
+            "description": "Enable the Microsoft AppSource symbols feed.",
+            "scope": "resource"
           },
           "365businessdev.alget.nugetFeeds": {
             "type": "array",
             "description": "List of additional NuGet feeds.",
+            "scope": "resource",
             "items": {
               "type": "object",
               "properties": {

@@ -69,38 +69,38 @@ export class Package {
     public PackageMetadata: NuSpec | null;
 
     constructor(
-        PackageID: string | null = null,
-        ID: string | undefined,
-        MinimumVersion: string | null = null,
-        Version: string,
-        Name: string,
-        Description: string,
-        Publisher: string,
-        CountryCode: string,
-        Source: PackageSource,
-        PackageMetadata: NuSpec | null = null,
+        packageID: string | null = null,
+        id: string | undefined,
+        minimumVersion: string | null = null,
+        version: string,
+        name: string,
+        description: string,
+        publisher: string,
+        countryCode: string,
+        source: PackageSource,
+        packageMetadata: NuSpec | null = null,
         alPackagesPath: string = ""
     ) {
-        if (PackageID === null) {
-            PackageID = `${Publisher}.${Name}.symbols.${ID}`.replaceAll(" ", "");
+        if (packageID === null) {
+            packageID = `${publisher}.${name}.symbols.${id}`.replaceAll(" ", "");
 
-            if (PackageID.length > 100) {
-                PackageID = `${Publisher}.${Name}`
+            if (packageID.length > 100) {
+                packageID = `${publisher}.${name}`
                     .replaceAll(" ", "")
                     .substring(0, 100 - 36 - 9);
-                PackageID += `.symbols.${ID}`;
+                packageID += `.symbols.${id}`;
             }
         }
-        this.PackageID = PackageID;
-        this.ID = ID;
-        this.MinimumVersion = MinimumVersion;
-        this.Version = Version;
-        this.Name = Name;
-        this.Description = Description;
-        this.Publisher = Publisher;
-        this.CountryCode = CountryCode;
-        this.Source = Source;
-        this.PackageMetadata = PackageMetadata;
+        this.PackageID = packageID;
+        this.ID = id;
+        this.MinimumVersion = minimumVersion;
+        this.Version = version;
+        this.Name = name;
+        this.Description = description;
+        this.Publisher = publisher;
+        this.CountryCode = countryCode;
+        this.Source = source;
+        this.PackageMetadata = packageMetadata;
 
         this.tryFindPackageInALPackagesPath(alPackagesPath);
     }

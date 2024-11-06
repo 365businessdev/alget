@@ -1,21 +1,22 @@
-import { Package } from "../Models/package";
-import * as settings from "../Common/settings";
+import * as vscode from "vscode";
+import { Settings } from "../Common/settings";
 import * as output from "../output";
 import { fetchPackagesFromFeed } from "../NuGet/fetchPackages";
 import { downloadPackage } from "../NuGet/downloadPackage";
 import { downloadPackageManifest } from "../NuGet/downloadPackageManifest";
-import * as vscode from "vscode";
+import { Package } from "../Models/package";
 import { PackageDependency } from '../Models/package-dependency';
-import { Versions } from '../Models/nuspec';
 import { PackageSource } from '../Models/package-source';
-import { addDependencyToManifest, getPackageCacheFromManifest } from "../Common/manifest";
+import { Versions } from '../Models/nuspec';
+import { ALManifest } from "../Common/manifest";
+import { VersionRange } from "../NuGet/version-range";
 const fs = require("fs");
 const path = require("path");
 
 /// <summary>
 /// Class for managing packages
 /// </summary>
-class PackageManager {
+export class PackageManager {
   private packages: Package[] = [];
   private projectWorkspaceFolder: vscode.WorkspaceFolder;
 
@@ -26,10 +27,13 @@ class PackageManager {
     this.projectWorkspaceFolder = projectWorkspaceFolder;
   }
 
-  private async findPackage(packageId: string): Promise<Package | undefined> {
+  /// <summary>
+  /// Find package by package ID
+  /// </summary>
+  private async findPackageAsync(packageId: string): Promise<Package | undefined> {
     let pkg = this.packages.find((p) => p.PackageID === packageId);
     if (!pkg) {
-      this.packages = await this.loadPackages(packageId);
+      this.packages = await this.loadPackagesAsync(packageId);
       pkg = this.packages.find((p) => p.PackageID === packageId);
       if (!pkg) {
         output.logError(`Package ${packageId} not found`);
@@ -43,7 +47,7 @@ class PackageManager {
   /// <summary>
   /// Loads the packages from the configured feeds
   /// </summary>
-  public async loadPackages(filterString: string | undefined = undefined, resetList: boolean = false): Promise<Package[]> {
+  public async loadPackagesAsync(filterString: string | undefined = undefined, resetList: boolean = false): Promise<Package[]> {
     if (resetList) {
       this.packages = [];
     }
@@ -52,30 +56,30 @@ class PackageManager {
 
     let pkgs: Package[] = [];
 
-    if (settings.isMSSymbolsFeedEnabled()) {
+    if (Settings.isMSSymbolsFeedEnabled()) {
       output.log(
-        `Fetching packages from '${settings.MSSymbolsFeedUrl}' feed url`
+        `Fetching packages from '${Settings.MSSymbolsFeedUrl}' feed url`
       );
       pkgs = await fetchPackagesFromFeed(
         new PackageSource(
-          settings.MSSymbolsFeedName,
-          settings.MSSymbolsFeedUrl
+          Settings.MSSymbolsFeedName,
+          Settings.MSSymbolsFeedUrl
         ),
-        filterString === undefined ? `.${settings.getCountryCode().toUpperCase() || ""}.` : filterString,
+        filterString === undefined ? `.${Settings.getCountryCode().toUpperCase() || ""}.` : filterString,
         false
       );
       output.log(`${pkgs.length} packages received from feed`);
       this.packages.push(...pkgs);
     }
 
-    if (settings.isAppSourceSymbolsFeedEnabled()) {
+    if (Settings.isAppSourceSymbolsFeedEnabled()) {
       output.log(
-        `Fetching packages from '${settings.AppSourceSymbolsFeedUrl}' feed url`
+        `Fetching packages from '${Settings.AppSourceSymbolsFeedUrl}' feed url`
       );
       pkgs = await fetchPackagesFromFeed(
         new PackageSource(
-          settings.AppSourceSymbolsFeedName,
-          settings.AppSourceSymbolsFeedUrl
+          Settings.AppSourceSymbolsFeedName,
+          Settings.AppSourceSymbolsFeedUrl
         ),
         filterString === undefined ? "" : filterString,
         false
@@ -84,7 +88,7 @@ class PackageManager {
       this.packages.push(...pkgs);
     }
 
-    this.packages.push(...await this.loadPackagesFromCustomFeeds(filterString));
+    this.packages.push(...await this.loadPackagesFromCustomFeedsAsync(filterString));
 
     return this.packages;
   }
@@ -92,10 +96,10 @@ class PackageManager {
   /// <summary>
   /// Loads the packages from the custom feeds
   /// </summary>
-  private async loadPackagesFromCustomFeeds(filterString: string | undefined = undefined): Promise<Package[]> {
+  private async loadPackagesFromCustomFeedsAsync(filterString: string | undefined = undefined): Promise<Package[]> {
     let packages: Package[] = [];
 
-    const customFeeds = settings.getCustomFeeds();
+    const customFeeds = Settings.getCustomFeeds();
     for (const feed of customFeeds) {
       output.log(`Fetching packages from '${feed.url}' feed url`);
       const pkgs = await fetchPackagesFromFeed(
@@ -125,8 +129,8 @@ class PackageManager {
   /// <summary>
   /// Installs a package
   /// </summary>
-  async install(packageId: string, packageVersion: string | undefined): Promise<void> {
-    let pkg = await this.findPackage(packageId);
+  async installPackageAsync(packageId: string, packageVersion: string | undefined): Promise<void> {
+    let pkg = await this.findPackageAsync(packageId);
     if (pkg === undefined) {
       return;
     }
@@ -141,7 +145,7 @@ class PackageManager {
       output.log(`Searching matching version for package ${pkg.Name} (ID: ${pkg.PackageID}) in version range ${packageVersion}`);
       if (pkg.PackageMetadata === null) {
         output.log(`Fetching package metadata for ${pkg.Name} (ID: ${pkg.PackageID}) from package feeds`);
-        pkg = await this.getPackageMetadataFromFeed(pkg);
+        pkg = await PackageManager.getPackageMetadataFromFeedAsync(pkg);
         if (pkg.PackageMetadata === null) {
           output.logError(`Failed to fetch package metadata for ${pkg.Name} (ID: ${pkg.PackageID}) from package feeds`);
 
@@ -215,7 +219,7 @@ class PackageManager {
     }
 
     output.log(`Checking dependencies for package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion}`);
-    const packageDependencies = await this.getPackageDependencies(pkg.PackageID!, packageVersion);
+    const packageDependencies = await this.getPackageDependenciesAsync(pkg.PackageID!, packageVersion);
     if (packageDependencies.length > 0) {
       // const manifestPath = path.join(
       //   this.projectWorkspaceFolder.uri.fsPath,
@@ -227,7 +231,7 @@ class PackageManager {
       for (const dependency of packageDependencies) {
         if (!(this.packages.find((p) => p.PackageID === dependency.ID && p.IsInstalled))) {
           output.log(`Downloading dependency ${dependency.ID} version ${dependency.Version}`);
-          await this.install(dependency.ID, dependency.Version);
+          await this.installPackageAsync(dependency.ID, dependency.Version);
         }
       }
     }
@@ -237,7 +241,7 @@ class PackageManager {
     }
 
     output.log(`Downloading package ${pkg.Name} (ID: ${pkg.PackageID}) version ${packageVersion} from ${pkg.Source.name} feed`);
-    const downloadData = await downloadPackage(pkg.PackageID!, packageVersion, pkg.Source.url!);
+    const downloadData = await downloadPackage(pkg.PackageID!, packageVersion, pkg.Source);
     if (downloadData === "") {
       output.logError(
         `Failed to download package ${pkg.Name} (ID: ${pkg.PackageID}) from ${pkg.Source.name} feed`
@@ -275,7 +279,7 @@ class PackageManager {
       if ((pkg.Publisher === "Microsoft") && (pkg.Name === "Platform")) {
         appFileName = `${pkg.Publisher}_System_${packageVersion}.app`;
       }
-      appFileName = this.RemoveInvalidChars(appFileName);
+      appFileName = this.removeInvalidChars(appFileName);
       const appFilePath = path.join(alPackagesFolder, appFileName);
 
       // Write the .app file to the .alpackages folder
@@ -294,11 +298,18 @@ class PackageManager {
             break;
           case ((pkg.ID !== undefined) && (!this.isMicrosoftSystemOrBaseApp(pkg))):
             // Update manifest file
-            const manifestPath = path.join(
-              this.projectWorkspaceFolder.uri.fsPath,
-              "app.json"
+            const manifest = new ALManifest(
+              path.join(
+                this.projectWorkspaceFolder.uri.fsPath,
+                "app.json"
+              )
             );
-            addDependencyToManifest(manifestPath, pkg.ID, pkg.Name, pkg.Publisher, packageVersion);
+            manifest.addDependencySync({
+              id: pkg.ID,
+              name: pkg.Name,
+              publisher: pkg.Publisher,
+              version: packageVersion
+            });
             break;
         }
 
@@ -321,8 +332,8 @@ class PackageManager {
   /// <summary>
   /// Gets the dependencies of a package
   /// </summary>
-  async getPackageDependencies(packageId: string, packageVersion: string): Promise<PackageDependency[]> {
-    let pkg = await this.findPackage(packageId);
+  async getPackageDependenciesAsync(packageId: string, packageVersion: string): Promise<PackageDependency[]> {
+    let pkg = await this.findPackageAsync(packageId);
     if (pkg === undefined) {
       return [];
     }
@@ -338,7 +349,7 @@ class PackageManager {
     const packageManifest = await downloadPackageManifest(
       pkg.PackageID,
       packageVersion,
-      pkg.Source.url!
+      pkg.Source
     );
     if (packageManifest === "") {
       output.logError(
@@ -361,7 +372,7 @@ class PackageManager {
         if (pkg.CountryCode !== "") {
           countryCode = pkg.CountryCode;
         } else {
-          countryCode = settings.getCountryCode();
+          countryCode = Settings.getCountryCode();
         }
         dependency.$.id = `Microsoft.Application.${countryCode.toUpperCase()}.symbols`;
       }
@@ -375,27 +386,7 @@ class PackageManager {
     return packageDependencies;
   }
 
-  private updatePackageMetadata(pkg: Package, feedPackageData: Package): Package {
-    // update the package with the metadata from the feed
-    if (pkg.Description === "") {
-      pkg.Description = feedPackageData.Description;
-    }
-    pkg.PackageMetadata = feedPackageData.PackageMetadata;
-    pkg.Source = feedPackageData.Source;
-
-    if (feedPackageData.Version === pkg.Version) {
-      return pkg;
-    }
-
-    pkg.UpdateVersion = feedPackageData.Version;
-
-    if (pkg.Version !== pkg.MinimumVersion) {
-      output.log(`Update for package '${pkg.PackageID}' (Version ${feedPackageData.Version}) is available.`);
-    }
-    return pkg;
-  }
-
-  async getPackageMetadataFromFeed(pkg: Package): Promise<Package> {
+  public static async getPackageMetadataFromFeedAsync(pkg: Package): Promise<Package> {
     if (pkg.PackageID === null) {
       return pkg;
     }
@@ -412,7 +403,7 @@ class PackageManager {
         false
       );
       if (packages.length !== 0) {
-        return this.updatePackageMetadata(pkg, packages[0]);
+        return PackageManager.updatePackageMetadata(pkg, packages[0]);
       }
     } else {
       let packages: Package[];
@@ -420,30 +411,30 @@ class PackageManager {
       if (pkg.Publisher.toLowerCase() === "microsoft") {
         packages = await fetchPackagesFromFeed(
           new PackageSource(
-            settings.MSSymbolsFeedName,
-            settings.MSSymbolsFeedUrl
+            Settings.MSSymbolsFeedName,
+            Settings.MSSymbolsFeedUrl
           ),
           pkg.PackageID,
           false
         );
         if (packages.length !== 0) {
-          return this.updatePackageMetadata(pkg, packages[0]);
+          return PackageManager.updatePackageMetadata(pkg, packages[0]);
         }
       }
 
       packages = await fetchPackagesFromFeed(
         new PackageSource(
-          settings.AppSourceSymbolsFeedName,
-          settings.AppSourceSymbolsFeedUrl
+          Settings.AppSourceSymbolsFeedName,
+          Settings.AppSourceSymbolsFeedUrl
         ),
         pkg.PackageID,
         false
       );
       if (packages.length !== 0) {
-        return this.updatePackageMetadata(pkg, packages[0]);
+        return PackageManager.updatePackageMetadata(pkg, packages[0]);
       }
 
-      for (const feed of (settings.getCustomFeeds() as PackageSource[])) {
+      for (const feed of (Settings.getCustomFeeds() as PackageSource[])) {
         // transform package ID based on the package source schema
         const packageId = feed.packageIDSchema !== "" ? 
           feed.packageIDSchema.toLowerCase()
@@ -464,7 +455,7 @@ class PackageManager {
           false
         );
         if (packages.length !== 0) {
-          return this.updatePackageMetadata(pkg, packages[0]);
+          return PackageManager.updatePackageMetadata(pkg, packages[0]);
         }
       }
     }
@@ -472,19 +463,14 @@ class PackageManager {
     return pkg;
   }
 
-  uninstall(packageName: string): void {
+  uninstallPackageAsync(packageName: string): void {
     console.log(`Uninstalling package: ${packageName}`);
     // Implementation for uninstalling a package
   }
 
-  update(packageName: string): void {
+  updatePackageAsync(packageName: string): void {
     console.log(`Updating package: ${packageName}`);
     // Implementation for updating a package
-  }
-
-  list(): void {
-    console.log("Listing all packages");
-    // Implementation for listing all packages
   }
 
   /// <summary>
@@ -540,12 +526,12 @@ class PackageManager {
       return null;
     }
   
-    return {
-      minVersion: match[1].trim(),
-      maxVersion: match[2].trim(),
-      isMinInclusive: range.startsWith('['),
-      isMaxInclusive: range.endsWith(']')
-    };
+    return new VersionRange(
+      match[1].trim(),
+      match[2].trim(),
+      range.startsWith('['),
+      range.endsWith(']')
+    );
   }
 
   private isMicrosoftSystemOrBaseApp(pkg: Package): boolean {
@@ -564,19 +550,30 @@ class PackageManager {
     return false;
   }
 
+  private static updatePackageMetadata(pkg: Package, feedPackageData: Package): Package {
+    // update the package with the metadata from the feed
+    if (pkg.Description === "") {
+      pkg.Description = feedPackageData.Description;
+    }
+    pkg.PackageMetadata = feedPackageData.PackageMetadata;
+    pkg.Source = feedPackageData.Source;
+
+    if (feedPackageData.Version === pkg.Version) {
+      return pkg;
+    }
+
+    pkg.UpdateVersion = feedPackageData.Version;
+
+    if (pkg.Version !== pkg.MinimumVersion) {
+      output.log(`Update for package '${pkg.PackageID}' (Version ${feedPackageData.Version}) is available.`);
+    }
+    return pkg;
+  }
+
   /// <summary>
   /// Removes invalid characters from a file name
   /// </summary>
-  RemoveInvalidChars(fileName: string): string {
+  removeInvalidChars(fileName: string): string {
     return fileName.replace(/[/\\?%*:|"<>]/g, '-');
   }
-}
-
-export default PackageManager;
-
-export interface VersionRange {
-  minVersion: string;
-  maxVersion: string;
-  isMinInclusive: boolean;
-  isMaxInclusive: boolean;
 }
