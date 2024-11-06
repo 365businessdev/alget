@@ -1,8 +1,8 @@
-import axios from 'axios';
 import * as settings from '../Common/settings';
 import { getServiceUrl } from './packageIndex';
 import { Package } from '../Models/package';
 import { PackageSource } from '../Models/package-source';
+import { invokePackageAPIRequestAsync } from './invokePackageAPIRequest';
 
 /// <summary>
 /// Fetches the packages from the NuGet.org feed
@@ -30,11 +30,10 @@ export async function fetchPackagesFromFeed(packageSource: PackageSource, packag
         packageName = packageName.replaceAll(' ', '');
 
         // Get the search URL for the feed
-        const searchUrl = await getServiceUrl(packageSource.url, 'SearchQueryService') + `?q=${packageName}&prerelease=${prerelease}`;
-        console.log(`URL: ${searchUrl}`);
+        const searchUrl = await getServiceUrl(packageSource, 'SearchQueryService') + `?q=${packageName}&prerelease=${prerelease}`;
         // Fetch packages using the search URL
-        const searchResponse = await axios.get(searchUrl);
-        const nugetPackages = searchResponse.data.data;
+        const searchResponse = await invokePackageAPIRequestAsync(searchUrl, packageSource);
+        const nugetPackages = searchResponse.data;
 
         let configCountryCode = settings.getCountryCode().toLowerCase();
         let result: Package[] = [];
