@@ -95,7 +95,7 @@ async function updatePackagesFromWorkspaceFolder(folder: vscode.WorkspaceFolder)
             output.log(`Updating package ${pkg.Name} (ID: ${pkg.PackageID}) to latest version...`);
 
             // update the package
-            await packageManager.install(pkg.PackageID!, undefined);
+            await packageManager.installPackageAsync(pkg.PackageID!, undefined);
         }
     } catch (error: any) {
         output.log(`Error reading AL project manifest: ${error.message}`);

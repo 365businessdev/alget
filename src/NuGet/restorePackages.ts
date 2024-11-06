@@ -96,7 +96,7 @@ async function restorePackagesFromWorkspaceFolder(folder: vscode.WorkspaceFolder
             output.log(`Restoring package ${pkg.Name} (ID: ${pkg.PackageID}) version ${pkg.Version} or newer...`);
 
             // Restore the package
-            await packageManager.install(pkg.PackageID!, undefined);
+            await packageManager.installPackageAsync(pkg.PackageID!, undefined);
         }
         // await alManifest.getPackageCacheFromManifest(manifestPath, manifest).then(async (packages) => {
         //     const pkgsToRestore = packages.filter((pkg) => (pkg.PackageID !== null) && (!pkg.IsInstalled) && (pkg.Source.name !== "Local"));
