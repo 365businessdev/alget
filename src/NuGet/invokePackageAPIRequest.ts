@@ -12,9 +12,10 @@ export async function invokePackageAPIRequestAsync(url: string, packageSource: P
 
     let requestConfig : axios.AxiosRequestConfig = {};
     // add authorization if needed
-    if (packageSource.authorizationHeader !== undefined) {
+    if (packageSource.apiKey !== undefined) {
+        const encodedPAT = Buffer.from(`:${packageSource.apiKey}`).toString('base64');
         requestConfig.headers = {
-            'Authorization': packageSource.authorizationHeader
+            'Authorization': `Basic ${encodedPAT}`
         };
     }
 

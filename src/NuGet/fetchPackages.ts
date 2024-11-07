@@ -3,6 +3,7 @@ import { getServiceUrl } from './packageIndex';
 import { Package } from '../Models/package';
 import { PackageSource } from '../Models/package-source';
 import { invokePackageAPIRequestAsync } from './invokePackageAPIRequest';
+import * as output from "../output";
 
 /// <summary>
 /// Fetches the packages from the NuGet.org feed
@@ -82,6 +83,7 @@ export async function fetchPackagesFromFeed(packageSource: PackageSource, packag
         return result;
     } catch (error) {
         console.error('Error fetching packages:', error);
+        output.logError(`Fetching packages from ${packageSource.name} failed: ${error}`.replace("AxiosError: ",""));
         return [];
     }
 }

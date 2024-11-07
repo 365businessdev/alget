@@ -397,7 +397,7 @@ export class PackageManager {
           pkg.Source.name,
           pkg.Source.url,
           pkg.Source.packageIDSchema,
-          pkg.Source.authorizationHeader
+          pkg.Source.apiKey
         ),
         pkg.PackageID,
         false
@@ -449,7 +449,7 @@ export class PackageManager {
             feed.name,
             feed.url,
             feed.packageIDSchema,
-            feed.authorizationHeader
+            feed.apiKey
           ),
           packageId,
           false

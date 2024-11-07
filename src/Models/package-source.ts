@@ -19,16 +19,16 @@ export class PackageSource {
   packageIDSchema: string = "";
 
   /// <summary>
-  /// The authorization header, if required.
+  /// The API key or Personal Access Token (PAT), if required.
   /// </summary>
-  public authorizationHeader?: string;
+  public apiKey?: string;
 
-  constructor(name: string, url?: string, packageIDSchema?: string, authorizationHeader?: string) {
+  constructor(name: string, url?: string, packageIDSchema?: string, apiKey?: string) {
     this.name = name;
     this.url = url;
     if (packageIDSchema !== undefined) {
       this.packageIDSchema = packageIDSchema;
     }
-    this.authorizationHeader = authorizationHeader;
+    this.apiKey = apiKey;
   }
 }
