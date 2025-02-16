@@ -36,9 +36,38 @@
     "extension",
     "app"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:alget-sidebar-view"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "alget-sidebar-view",
+          "title": "ALGet - NuGet package manager",
+          "icon": "media/package.svg"
+        }
+      ]
+    },
+    "views": {
+      "alget-sidebar-view": [
+        {
+          "type": "webview",
+          "id": "alget-package-sidebar",
+          "name": "Packages",
+          "contextualTitle": "ALGet - NuGet package manager for Microsoft Dynamics 365 Business Central AL development.",
+          "icon": "media/package.svg"
+        },
+        {
+          "type": "webview",
+          "id": "alget-packagesource-sidebar",
+          "name": "Package Sources",
+          "contextualTitle": "Package Sources registered for this workspace.",
+          "icon": "media/package.svg"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "365businessdev.alget.managePackages",
@@ -46,15 +75,18 @@
       },
       {
         "command": "365businessdev.alget.managePackagesFromCmdPalette",
-        "title": "ALGet: Manage Packages"
+        "title": "Manage Packages",
+        "category": "ALGet"
       },
       {
         "command": "365businessdev.alget.restorePackages",
-        "title": "ALGet: Restore NuGet Packages"
+        "title": "Restore NuGet Packages",
+        "category": "ALGet"
       },
       {
         "command": "365businessdev.alget.updatePackages",
-        "title": "ALGet: Update NuGet Packages"
+        "title": "Update NuGet Packages",
+        "category": "ALGet"
       }
     ],
     "menus": {
@@ -85,10 +117,22 @@
             "description": "Country code to be used for localized NuGet packages.",
             "scope": "resource"
           },
+          "365businessdev.alget.enableNuGetOrgFeed": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable the NuGet.org feed.",
+            "scope": "resource"
+          },
           "365businessdev.alget.enableMSSymbolsFeed": {
             "type": "boolean",
             "default": true,
             "description": "Enable the Microsoft symbols feed.",
+            "scope": "resource"
+          },
+          "365businessdev.alget.enableMSAppsFeed": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable the Microsoft apps feed.",
             "scope": "resource"
           },
           "365businessdev.alget.enableAppSourceSymbolsFeed": {
@@ -137,11 +181,12 @@
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
+    "vsce-package": "vsce package",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test --timeout 20000"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.8",
