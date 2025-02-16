@@ -1,0 +1,18 @@
+.loading-spinner {
+  text-align: center;
+  font-size: xx-large;
+  color: var(--vscode-button-background);
+}
+
+ul {
+  line-height: 1.5rem;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+ul > li > img {
+  margin-right: 10px;
+  height: 1.5rem;
+  width: 1.5rem;
+}
