@@ -35,6 +35,24 @@
 				"npm: watch-tests"
 			],
 			"problemMatcher": []
+		},
+		{
+			"type": "npm",
+			"script": "package",
+			"problemMatcher": [
+				"$ts-checker-eslint-webpack"
+			],
+			"label": "npm: package",
+			"detail": "webpack --mode production --devtool hidden-source-map && vsce package"
+		},
+		{
+			"type": "npm",
+			"script": "vsce-package",
+			"problemMatcher": [
+				"$ts-checker-eslint-webpack"
+			],
+			"label": "npm: vsce-package",
+			"detail": "vsce package"
 		}
 	]
 }
