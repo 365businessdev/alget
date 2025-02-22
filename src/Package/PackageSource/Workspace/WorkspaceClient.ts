@@ -46,6 +46,11 @@ export class WorkspaceClient implements IPackageSource {
     /// The file name contains the {version} placeholder, which needs to be replaced with the actual version of the package.
     /// </remarks>
     getPackageId(publisher: string, name: string): string {
+        // Special case for Microsoft Platform package, as the package name is 'System' instead of 'Platform'
+        if ((publisher.toLowerCase() === 'microsoft') && (name.toLowerCase() === 'platform')) {
+            name = 'System';
+        }
+        
         return this.PackageIdSchema
                 .replace('{publisher}', publisher)
                 .replace('{name}', name);
