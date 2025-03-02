@@ -60,8 +60,15 @@
           "icon": "media/package.svg"
         },
         {
-          "type": "webview",
-          "id": "alget-packagesource-sidebar",
+          "type": "tree",
+          "id": "alget-installed-package-treeview",
+          "name": "Installed",
+          "contextualTitle": "Installed packages for this workspace.",
+          "icon": "media/package.svg"
+        },
+        {
+          "type": "tree",
+          "id": "alget-packagesource-treeview",
           "name": "Package Sources",
           "contextualTitle": "Package Sources registered for this workspace.",
           "icon": "media/package.svg"
