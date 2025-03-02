@@ -1,8 +1,10 @@
 import * as vscode from "vscode";
-import { PackageSourceSidebar } from '../Panel/PackageSourceSidebar';
 import { Package } from '../Package/Package';
 import { ALProject } from '../AL/ALProject';
-import { PackageSourceListComponent } from "../Panel/Components/PackageSourceListComponent";
+import { PackageSourceTreeView } from "../Panel/PackageSourceTreeView";
+import { InstalledPackagesTreeView } from "../Panel/InstalledPackagesTreeView";
+import { PackageSidebar } from "../Panel/PackageSidebar";
+import { PackagePanel } from "../Panel/PackagePanel";
 
 /// <summary>
 /// ALGet user interface controller.
@@ -23,19 +25,30 @@ export class UIController {
     private ALProject: ALProject | undefined;
 
     /// <summary>
-    /// Specifies the package source sidebar webview.
+    /// Specifies the package sidebar.
     /// </summary>
-    public PackageSourceSidebar: PackageSourceSidebar;
+    public PackageSidebar: PackageSidebar;
+
+    /// <summary>
+    /// Specifies the package source tree view.
+    /// </summary>
+    public PackageSourceTreeView: PackageSourceTreeView;
+
+    /// <summary>
+    /// Specifies the installed packages tree view.
+    /// </summary>
+    public InstalledPackagesTreeView: InstalledPackagesTreeView;
 
     constructor(private readonly ExtensionContext: vscode.ExtensionContext) {
-        // initialize panels and views
-        this.PackageSourceSidebar = new PackageSourceSidebar(this.ExtensionContext.extensionUri);
+        this.ActiveWorkspaceFolder = this.getActiveWorkspaceFolder();
+
         // TODO: add packageSidebar
+        this.PackageSidebar = new PackageSidebar(this.ExtensionContext.extensionUri);
+        this.PackageSourceTreeView = new PackageSourceTreeView(this.ExtensionContext.extensionUri, this.ActiveWorkspaceFolder);
+        this.InstalledPackagesTreeView = new InstalledPackagesTreeView(this.ExtensionContext.extensionUri);
 
         // register webview view provider
         this.registerWebviewViewProvider();
-
-        this.ActiveWorkspaceFolder = this.getActiveWorkspaceFolder();
     }
 
     /// <summary>
@@ -44,8 +57,16 @@ export class UIController {
     private registerWebviewViewProvider() {
         this.ExtensionContext.subscriptions.push(
             vscode.window.registerWebviewViewProvider(
-                this.PackageSourceSidebar.ViewId,
-                this.PackageSourceSidebar
+                this.PackageSidebar.ViewId,
+                this.PackageSidebar
+            ),
+            vscode.window.registerTreeDataProvider(
+                this.PackageSourceTreeView.ViewId,
+                this.PackageSourceTreeView
+            ),
+            vscode.window.registerTreeDataProvider(
+                this.InstalledPackagesTreeView.ViewId,
+                this.InstalledPackagesTreeView
             )
         );
     }
@@ -56,13 +77,9 @@ export class UIController {
     public updateViews(alProject: ALProject) {
         this.ALProject = alProject;
 
-        // update the package source sidebar
-        this.PackageSourceSidebar.updatePackageSourceList(
-            PackageSourceListComponent.getPackageSourceListHtml(
-                this.ALProject.PackageSources, 
-                this.PackageSourceSidebar.webview?.webview.asWebviewUri(this.ExtensionContext.extensionUri)    
-            )
-        );
+        // update the package source tree view
+        this.PackageSourceTreeView.refresh(this.ALProject.Workspace);
+        this.InstalledPackagesTreeView.refresh(this.ALProject);
     } 
 
     /// <summary>

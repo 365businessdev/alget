@@ -1,0 +1,208 @@
+body {
+    margin: 20px;
+}
+header {
+    display: flex;
+    align-items: center;
+}
+header > img {
+    width: 150px;
+    height: auto;
+    border-radius: 50%;
+    margin: 5px;
+}
+header > div {
+    display: flex;
+    flex-direction: column;
+    padding-left: 20px;
+}
+.header-line1 {
+    display: flex;
+    flex: 1;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: hidden;
+    border: 0px;
+    align-items: baseline;
+}
+.header-line1 > span {
+    padding-left: 10px;
+    padding-right: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+}
+.header-line1 > .tags {
+    display: flex;
+    gap: 10px;
+}
+.header-line1 > .tags > span {
+    padding: 2px 5px;
+    border-radius: 5px;
+    cursor: help;
+    width: 80px;
+    text-align: center;
+    font-size: smaller;
+}
+.header-line1 > .tags > .app {
+    background-color: #28a745;
+    color: white;
+}
+.header-line1 > .tags > .symbols {
+    background-color: #007acc;
+    color: white;
+}
+.header-line1 > .tags > .runtime {
+    background-color: #ffcc00;
+    color: black;
+}
+.header-line2 {
+    display: flex;
+    flex: 1;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: hidden;
+    border: 0px;
+    align-items: center;
+    line-height: 18.2px;
+}
+.header-line2 > .publisher {
+    display: flex;
+    font-weight: 700;
+    padding-left: 10px;
+    padding-right: 10px;
+    border-right: 1px solid #ccc;
+    align-items: center;
+}
+.header-line2 > .publisher > span {
+    display: flex;
+    align-items: center;
+}
+.header-line2 > .publisher > span > img {
+    width: 18.2px;
+    height: 18.2px;
+    margin-right: 5px;
+}
+.header-line2 > div {
+    display: flex;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+.header-line2 > div:not(:last-child) {
+    border-right: 1px solid #ccc;
+}
+.header-line3 {
+    padding: 10px;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80vw;
+}
+.header-action-line {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+}
+.header-action-line > button {
+    width: max-content;
+    padding-left: 10px;
+    padding-right: 10px;
+    margin-right: 10px;
+    font-size: smaller;
+}
+.header-action-line > img {
+    width: 18.2px; 
+    height: 18.2px; 
+    margin-left: 10px;
+}
+.tab-area {
+    display: flex;
+    width: 100%;
+    border-bottom: 1px solid #414141;
+}
+.tab-area > div {
+    width: 200px;
+    padding: 10px;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-align: center;
+}
+.tab-area > .active {
+    font-weight: bold;
+}
+.tab-underline {
+    border: none;
+    border-top: 2px solid var(--vscode-foreground);
+    width: 200px;
+    transition: margin-left 0.3s;
+    position: absolute;
+
+    margin-left: 0px;
+    margin-top: -6px;
+}
+.tab {
+    padding: 20px;
+}
+.tab hr {
+    border-bottom: 1px solid #414141;
+    margin-bottom: 20px;
+}
+.tab h1 {
+    padding-bottom: 10px;
+    user-select: none;
+}
+.tab h2 {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    user-select: none;
+}
+.tab .version-selector {
+    margin-bottom: 20px;
+}
+.tab .version-selector > label {
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-right: 70px;
+}
+.tab .version-selector > select {
+    width: 400px;
+    margin-left: 10px;
+    padding: 5px;
+    color: var(--vscode-dropdown-foreground);
+    border: var(--vscode-dropdown-border);
+    background-color: var(--vscode-dropdown-background);
+}
+.tab .properties {
+    display: flex;
+    flex-direction: column;
+}
+.tab .properties > div {
+    display: flex;
+    margin-bottom: 10px;
+}
+.tab .properties > div > strong {
+    width: 150px;
+    text-transform: uppercase;
+}
+.tab .properties > div > span {
+    max-width: 60vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tab-dependencies h2 {
+    cursor: pointer;
+}
+.tab-dependencies p {
+    margin-bottom: 20px;
+}
+.tab-dependencies .dependency {
+    display: none; 
+    flex-direction: column;
+}
+pre {
+    background-color: var(--vscode-textCodeBlock-background);
+    padding: 10px;
+    border-radius: 5px;
+}

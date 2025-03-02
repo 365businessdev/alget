@@ -1,27 +1,84 @@
 import * as vscode from "vscode";
+import * as path from "path";
 
 import { getNonce } from "./getNonce";
+import { Package } from "../Package/Package";
+import { PackageListComponent } from "./Components/PackageListComponent";
 
+/// <summary>
+/// Class to manage the package sidebar webview.
+/// </summary>
 export class PackageSidebar implements vscode.WebviewViewProvider {
-  _view?: vscode.WebviewView;
-  _doc?: vscode.TextDocument;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+  /// <summary>
+  /// Specifies the ID of the tree view.
+  /// </summary>
+  /// <remarks>
+  /// This property must match the ID in the package.json file.
+  /// </remarks>
+  public ViewId: string = "alget-package-sidebar";
 
+  /// <summary>
+  /// The view to display.
+  /// </summary>
+  public View?: vscode.WebviewView;
+
+  private SearchQuery: string = "";
+
+  /// <summary>
+  /// List of packages to display.
+  /// </summary>
+  public Packages: Package[] = [];
+
+  constructor(private readonly _extensionUri: vscode.Uri) { }
+
+  /// <summary>
+  /// Create the webview view.
+  /// </summary>
   public resolveWebviewView(webviewView: vscode.WebviewView) {
-    this._view = webviewView;
+    this.View = webviewView;
 
     webviewView.webview.options = {
       // Allow scripts in the webview
       enableScripts: true,
-
-      localResourceRoots: [this._extensionUri],
+      localResourceRoots: [
+        this._extensionUri,
+        vscode.Uri.file(path.join(this._extensionUri.fsPath, "ui"))
+      ],
     };
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.type) {
+        case "onRestoreState": {
+          if (this.SearchQuery === data.value) {
+            this.restoreState(this.SearchQuery, this.Packages);
+          }
+          break;
+        }
+        case "onSearchPackages": {
+          if (!data.value) {
+            return;
+          }
+          this.SearchQuery = data.value;
+          vscode.commands.executeCommand("alget.searchPackages", this.SearchQuery);
+          break;
+        }
+        case "onSelectPackage": {
+          if (!data.value) {
+            return;
+          }
+
+          const pkg = this.Packages.find((pkg) => pkg.Id === data.value);
+          if (!pkg) {
+            vscode.window.showErrorMessage(`Unable to find package with ID '${data.value}'. Please report this issue.`);
+            return;
+          }
+
+          vscode.commands.executeCommand("alget.selectPackage", pkg);
+          break;
+        }
         case "onInfo": {
           if (!data.value) {
             return;
@@ -36,27 +93,75 @@ export class PackageSidebar implements vscode.WebviewViewProvider {
           vscode.window.showErrorMessage(data.value);
           break;
         }
+        default: {
+          vscode.window.showInformationMessage(`Message Type '${data.type}' with value '${data.value}' received.`);
+          break;
+        }
       }
     });
   }
 
-  public revive(panel: vscode.WebviewView) {
-    this._view = panel;
+  private restoreState(searchQuery: string, packages: Package[]) {
+    this.View!.webview.postMessage({
+      type: "onRestoredState",
+      value: {
+        searchQuery: searchQuery,
+        packages: PackageListComponent.getPackageListHtml(
+                    packages, 
+                    this.View!.webview.asWebviewUri(this._extensionUri))
+      }
+    });
+  }
+  
+  /// <summary>
+  /// Updates the package list in the sidebar.
+  /// </summary>
+  /// <param name="packages">The packages to display.</param>
+  public updatePackageList(packages: Package[]) {
+    if (!this.View) {
+      return; // TODO: Implement error handling
+    }
+
+    // Update the list of packages
+    this.Packages = packages;
+
+    this.View.webview.postMessage({
+      type: "onPackagesLoaded",
+      value: PackageListComponent.getPackageListHtml(
+                this.Packages, 
+                this.View.webview.asWebviewUri(this._extensionUri))
+    });
   }
 
+  /// <summary>
+  /// Revive the webview view.
+  /// </summary>
+  /// <param name="webviewView">The webview view to revive.</param>
+  public revive(webviewView: vscode.WebviewView) {
+    this.View = webviewView;
+  }
+
+  /// <summary>
+  /// Get the HTML content for the webview.
+  /// </summary>
+  /// <param name="webview">The webview to get the HTML for.</param>
+  /// <returns>The HTML content for the webview.</returns>
   private _getHtmlForWebview(webview: vscode.Webview) {
     // Local path to css styles
-    const styleResetPath = vscode.Uri.joinPath(this._extensionUri, "media", "reset.css");
-    const stylesVSCodePath = vscode.Uri.joinPath(this._extensionUri, "media", "vscode.css");
+    const styleResetPath = vscode.Uri.joinPath(this._extensionUri, "ui", "css", "reset.css");
+    const stylesVSCodePath = vscode.Uri.joinPath(this._extensionUri, "ui", "css", "vscode.css");
 
     const styleResetUri = webview.asWebviewUri(styleResetPath);
     const styleVSCodeUri = webview.asWebviewUri(stylesVSCodePath);
 
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "out", "compiled/sidebar.js")
+      vscode.Uri.joinPath(this._extensionUri, "ui", "scripts", "packageSidebarWebviewHandler.js")
     );
-    const styleMainUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "out", "compiled/sidebar.css")
+    const styleALGetUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, "ui", "css", "alget-sidebar.css")
+    );
+    const styleALGetLoadingUri = webview.asWebviewUri(
+        vscode.Uri.joinPath(this._extensionUri, "ui", "css", "alget-loading.css")
     );
 
     // Use a nonce to only allow a specific script to be run.
@@ -70,27 +175,22 @@ export class PackageSidebar implements vscode.WebviewViewProvider {
 					Use a content security policy to only allow loading images from https or from our extension directory,
 					and only allow scripts that have a specific nonce.
         -->
-        <!--
-        TODO: Enable CSP for webview, but make sure to allow the font-awesome icons to load
         <meta http-equiv="Content-Security-Policy" content="img-src https: data:; style-src 'unsafe-inline' ${webview.cspSource}; script-src 'nonce-${nonce}';">
-        -->
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<link href="${styleResetUri}" rel="stylesheet">
 				<link href="${styleVSCodeUri}" rel="stylesheet">
-        <style>
-          .loading-spinner {
-            text-align: center;
-            font-size: xx-large;
-            color: var(--vscode-button-background);
-          }
-        </style>
-        <script nonce="${nonce}" src="https://kit.fontawesome.com/f76ceefbc3.js" crossorigin="anonymous"></script>
-        <script nonce="${nonce}">
-          const vscode = acquireVsCodeApi();
-        </script>
+        <link href="${styleALGetUri}" rel="stylesheet">
+        <link href="${styleALGetLoadingUri}" rel="stylesheet">
+        <script nonce="${nonce}" src="${scriptUri}"></script>
 			</head>
       <body>
-        <div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i></div>
+        <div class="loading-bar" id="loading-bar">
+            <div class="loading-progress" id="loading-progress"></div>
+        </div>
+        <div class="search-bar">
+        <input type="text" name="q" placeholder="Search for packages..." aria-label="Enter packages to search" autocomplete="off" value autofocus>
+        </div>
+        <div id="results" class="packageList"></div>
 			</body>
 			</html>`;
   }

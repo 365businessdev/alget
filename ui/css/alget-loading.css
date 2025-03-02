@@ -1,0 +1,36 @@
+.loading-bar {
+  width: 100%;
+  height: 2px;
+  background-color: var(--vscode-sidebar-background);
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-progress {
+  width: 2%;
+  height: 100%;
+  background-color: var(--vscode-progressBar-background);
+  position: absolute;
+
+  display: none;
+
+  animation-name: loading;
+  animation-duration: 4s;
+  animation-iteration-count: infinite;
+  animation-timing-function: steps(100);
+  transform: translateZ(0);
+}
+
+@keyframes loading {
+  0% {
+    transform: translateX(0) scaleX(1);
+  }
+
+  50% {
+    transform: translateX(2500%) scaleX(1);
+  }
+
+  to {
+    transform: translateX(4900%) scaleX(1);
+  }
+}

@@ -11,6 +11,8 @@ import { VSCodeWorkspace } from './VSCode/VSCodeWorkspace';
 import { PackageController } from "./PackageController";
 import { UIController } from './UIController';
 import { ALProject } from "../AL/ALProject";
+import { PackagePanel } from "../Panel/PackagePanel";
+import { Package } from "../Package/Package";
 
 /// <summary>
 /// Controller for the ALGet extension.
@@ -76,24 +78,53 @@ export class ALGetController {
         // Register event listeners
         this.registerEventListeners();
 
+        // Register commands
+        this.registerCommands();
+
         // Initialize the user interface controller
         if (!this.ExtensionContext) {
             OutputChannel.logError("Something went wrong while initializing the ALGet extension. Could not access the extension context.");
 
             return;
         }
-        this.UIController = new UIController(this.ExtensionContext);
+        this.UIController = new UIController(this.ExtensionContext!);
 
         // Initialize the package controller
         this.PackageController = new PackageController(vscode.workspace.workspaceFolders);
         this.PackageController.loadALProjects().then(() => {
             if (this.PackageController?.ALProjects) {
-                this.UIController!.updateViews(this.PackageController.ALProjects[0]);
+                this.updateUI();
             } else {
                 // TODO: Show "Please open AL workspace..." message in the webview
                 OutputChannel.logError("No AL projects found.");
             }
         });
+    }
+
+    /// <summary>
+    /// Updates the user interface.
+    /// </summary>
+    /// <param name="activeEditor">The active editor. If not provided, the active editor is used.</param>
+    private updateUI(activeEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor) {
+        if (!this.UIController) {
+            return;
+        }
+        this.UIController.setActiveWorkspaceFolderFromEditorOrFirst(activeEditor);
+
+        // Get the AL project for the active editor
+        const alProject : ALProject | undefined = 
+            this.PackageController?.ALProjects.find(
+                alProject => 
+                    alProject.Workspace.uri.fsPath === this.UIController?.getActiveWorkspaceFolder()!.uri.fsPath);
+
+        // if no matching AL project is found, stop here
+        if (!alProject) {
+            console.error("No matching AL project found for the active editor.");
+
+            return;
+        }
+
+        this.UIController.updateViews(alProject);
     }
 
     /// <summary>
@@ -169,27 +200,90 @@ export class ALGetController {
     private registerEventListeners() {
         // Listen to active editor changes, to update webviews
         vscode.window.onDidChangeActiveTextEditor(activeEditor => {
-            if (!this.UIController) {
-                return;
-            }
-            this.UIController.setActiveWorkspaceFolderFromEditorOrFirst(activeEditor);
-
-            const alProject : ALProject | undefined = 
-                this.PackageController?.ALProjects.find(
-                    alProject => 
-                        alProject.Workspace.uri.fsPath === this.UIController?.getActiveWorkspaceFolder()!.uri.fsPath);
-
-            // if no matching AL project is found, stop here
-            if (!alProject) {
-                console.error("No matching AL project found for the active editor.");
-
-                return;
-            }
-
-            this.UIController.updateViews(alProject);
+            this.updateUI(activeEditor);
         });
 
         // TODO: Listen to changes in app.json files, to update PackageController
+    }
+
+    private registerCommands() {
+        if (!this.ExtensionContext) {
+            OutputChannel.logError("Something went wrong while initializing the ALGet extension. Could not access the extension context.");
+            return;
+        }
+
+        // Register the search packages command
+        this.ExtensionContext.subscriptions.push(
+            vscode.commands.registerCommand("alget.selectPackage", async (pkg: Package) => {
+                if (!this.PackageController) {
+                    vscode.window.showErrorMessage("ALGet package controller not initialized. Please report this issue.");
+                    return;
+                }
+                if (!this.UIController) {
+                    vscode.window.showErrorMessage("ALGet UI controller not initialized. Please report this issue.");
+                    return;
+                }
+
+                // Open package panel webview
+                const panel = PackagePanel.createOrShow(this.ExtensionContext!.extensionUri, pkg);
+
+                // Load package manifest
+                this.PackageController.getPackageManifestById(
+                    pkg.PackageSources[0],
+                    pkg.PackageSources[0].getPackageId(
+                        pkg.Publisher,
+                        pkg.Name,
+                        pkg.Id,
+                        '' // TODO: Country Code
+                    ),
+                    pkg.Version ?
+                        pkg.Version :
+                        this.PackageController.getLatestVersion(pkg) // select the latest version if no version is specified
+                ).then(manifest => {
+                    // Set package manifest in the panel
+                    panel.setManifest(manifest);
+                }).catch(error => {
+                    OutputChannel.logError(error);
+                    vscode.window.showErrorMessage(`Unable to load package manifest for package with ID '${pkg.Id}'. Please report this issue.`);
+                });
+            }),
+            vscode.commands.registerCommand("alget.searchPackages", async (query: string) => {
+                if (!this.PackageController) {
+                    vscode.window.showErrorMessage("ALGet package controller not initialized. Please report this issue.");
+                    return;
+                }
+                this.PackageController.searchPackages(query, this.UIController?.getActiveWorkspaceFolder()).then(packages => {
+                    if (!this.UIController) {
+                        vscode.window.showErrorMessage("ALGet UI controller not initialized. Please report this issue.");
+                        return;
+                    }
+                    this.UIController.PackageSidebar.updatePackageList(packages);
+                });
+                // NOTE: Not sure, if I like this, but maybe it's a good idea to show progress notification instead. Some feeds might take a while to respond.
+                // await vscode.window.withProgress({
+                //     location: vscode.ProgressLocation.Notification,
+                //     title: `ALGet: Searching for package '${query}'`,
+                //     cancellable: false
+                // }, () => {
+                //     const p = new Promise<void>(async resolve => {
+                //         if (!this.PackageController) {
+                //             vscode.window.showErrorMessage("ALGet package controller not initialized. Please report this issue.");
+                //             return;
+                //         }
+
+                //         const packages = await this.PackageController.searchPackages(query, this.UIController?.getActiveWorkspaceFolder());
+                        
+                //         if (!this.UIController) {
+                //             vscode.window.showErrorMessage("ALGet UI controller not initialized. Please report this issue.");
+                //             return;
+                //         }
+                //         resolve(this.UIController.PackageSidebar.updatePackageList(packages));
+                //     });
+        
+                //     return p;
+                // });
+            })
+        );
     }
 
     /// <summary>

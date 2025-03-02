@@ -18,6 +18,8 @@ import { AppSourcePackageSource } from '../Package/PackageSource/NuGet/MSFT/AppS
 import { MSAppsPackageSource } from '../Package/PackageSource/NuGet/MSFT/MSAppsPackageSource';
 import { MSSymbolsPackageSource } from '../Package/PackageSource/NuGet/MSFT/MSSymbolsPackageSource';
 import { NuGetOrgPackageSource } from '../Package/PackageSource/NuGet/NuGetOrgPackageSource';
+
+import { Package } from '../Package/Package';
 import { PackageVersion } from '../Package/PackageVersion';
 
 /// <summary>
@@ -83,7 +85,7 @@ export class PackageController {
             OutputChannel.log(`Loading AL project from workspace folder '${workspaceFolder.name}' ...`);
 
             const alProject = new ALProject(workspaceFolder as vscode.WorkspaceFolder);
-            alProject.PackageSources = this.registerPackageSources(workspaceFolder.uri);
+            alProject.PackageSources = PackageController.getPackageSources(workspaceFolder.uri);
             this.ALProjects.push(alProject);
 
             OutputChannel.log(`AL project '${alProject.Package?.Name}' from workspace folder '${workspaceFolder.name}' loaded.`);
@@ -174,7 +176,7 @@ export class PackageController {
                     const highestVersion = workspacePkgs.reduce((prev: any, curr: any) => {
                         return (prev.version > curr.version) ? prev : curr;
                     });
-                    dependency.Version = highestVersion.version;
+                    dependency.Version = new PackageVersion(highestVersion.version);
                 }
             }));            
 
@@ -185,34 +187,47 @@ export class PackageController {
     }
 
     /// <summary>
-    /// Registers the package sources.
+    /// Get the package sources enabled for the given workspace folder.
     /// </summary>
-    private registerPackageSources(uri: vscode.Uri) : IPackageSource[] {
+    /// <param name="uri">The workspace folder uri.</param>
+    /// <param name="suppressOutput">Whether to suppress output to the output channel.</param>
+    /// <returns>The package sources enabled for the workspace folder.</returns>
+    public static getPackageSources(uri: vscode.Uri | undefined, suppressOutput: boolean = false): IPackageSource[] {
         let packageSources: IPackageSource[] = [];
 
         if (ALGetController.getExtensionConfiguration(uri)["enableNuGetOrgFeed"]) {
-            OutputChannel.log("Registering NuGet.org package source.");
+            if (!suppressOutput) {
+                OutputChannel.log("Registering NuGet.org package source.");
+            }
             packageSources.push(new NuGetOrgPackageSource());
         }
 
         // Register MSFT default package sources
         if (ALGetController.getExtensionConfiguration(uri)["enableMSSymbolsFeed"]) {
-            OutputChannel.log("Registering Microsoft symbols package source.");
+            if (!suppressOutput) {
+                OutputChannel.log("Registering Microsoft symbols package source.");
+            }
             packageSources.push(new MSSymbolsPackageSource());
         }
         if (ALGetController.getExtensionConfiguration(uri)["enableMSAppsFeed"]) {
-            OutputChannel.log("Registering Microsoft apps package source.");
+            if (!suppressOutput) {
+                OutputChannel.log("Registering Microsoft apps package source.");
+            }
             packageSources.push(new MSAppsPackageSource());
         }
         if (ALGetController.getExtensionConfiguration(uri)["enableAppSourceSymbolsFeed"]) {
-            OutputChannel.log("Registering AppSource symbols package source.");
+            if (!suppressOutput) {
+                OutputChannel.log("Registering AppSource symbols package source.");
+            }
             packageSources.push(new AppSourcePackageSource());
         }
 
         // Register custom package sources, if any
         const customPackageSources = ALGetController.getExtensionConfiguration(uri)["nugetFeeds"];
         for (const customPackageSource of customPackageSources) {
-            OutputChannel.log(`Registering ${customPackageSource.name} package source.`);
+            if (!suppressOutput) {
+                OutputChannel.log(`Registering ${customPackageSource.name} package source.`);
+            }
             packageSources.push(
                 new CustomFeed(
                     customPackageSource.name,
@@ -223,10 +238,183 @@ export class PackageController {
             );
         }
 
-        if (packageSources.length === 0) {
+        if ((packageSources.length === 0) && (!suppressOutput)) {
             OutputChannel.logWarning("No package sources registered. This may lead to issues when resolving dependencies.");
         }
 
         return packageSources;
+    }
+
+    /// <summary>
+    /// Search for packages, by ID, in the package sources.
+    /// </summary>
+    /// <param name="packageId">Package ID to search for.</param>
+    /// <param name="workspaceFolder">The workspace folder the search has been performed from.</param>
+    public async getPackageById(packageId: string, workspaceFolder: vscode.WorkspaceFolder | undefined): Promise<Package> {
+        const pkgSources: IPackageSource[] = PackageController.getPackageSources(workspaceFolder?.uri, true);
+        if (pkgSources.length === 0) {
+            OutputChannel.logError('No package sources found to search for packages.');
+            vscode.window.showErrorMessage('We\'re sorry, but no package sources were found to search for packages. Please review the extension settings and try again.');
+            return Promise.reject(new Error('No package sources found.'));
+        }
+
+        let packages: Package[] = [];
+        for (const pkgSource of pkgSources) {
+            const pktSourceResult = await pkgSource.getPackageById(packageId, false); // TODO: implement pre-release flag
+
+            for (const pkgMetadata of pktSourceResult) {
+                const pkg = pkgSource.toPackage(pkgMetadata);
+                packages = this.addOrUpdatePackages(packages, pkg, pkgSource, pkgMetadata);
+            }
+        }
+
+        if (packages.length === 0) {
+            OutputChannel.logError(`No packages found for ID '${packageId}'.`);
+            vscode.window.showErrorMessage(`We're sorry, but no package with ID '${packageId}' was found. Please review the package sources configuration and try again.`);
+            return Promise.reject(new Error(`No packages found for ID '${packageId}'.`));
+        }
+        if (packages.length > 1) {
+            OutputChannel.logWarning(`Multiple packages found for ID '${packageId}'. Returning the first package found.`);
+        };
+        return Promise.resolve(packages[0]);
+    }
+
+    public async getPackageManifestById(packageSource: IPackageSource, packageId: string, packageVersion: PackageVersion): Promise<any> {
+        OutputChannel.log(`Getting package manifest for package '${packageId}' version '${packageVersion}' from package source '${packageSource.Name}' ...`);
+        const pkgManifest = await packageSource.getPackageManifestById(packageId, packageVersion.toString());
+        if (pkgManifest === '') {
+            throw new Error(`Package manifest for package '${packageId}' version '${packageVersion}' from package source '${packageSource.Name}' has been retrieved, but is empty. Please consult with package source provider.`);
+        }
+        OutputChannel.log(`Package manifest for package '${packageId}' version '${packageVersion}' from package source '${packageSource.Name}' retrieved.`);
+
+        return Promise.resolve(pkgManifest);
+    }
+
+    public async downloadPackageById(packageSource: IPackageSource, packageId: string, packageVersion: PackageVersion): Promise<string> {
+        OutputChannel.log(`Downloading package '${packageId}' version '${packageVersion}' from package source '${packageSource.Name}' ...`);
+        const packageFile = await packageSource.downloadPackageById(packageId, packageVersion.toString());
+        OutputChannel.log(`Package '${packageId}' version '${packageVersion}' from package source '${packageSource.Name}' downloaded.`);
+
+        return Promise.resolve(packageFile);
+    }
+
+    /// <summary>
+    /// Searches for packages in the package sources.
+    /// </summary>
+    /// <param name="searchQuery">The search query.</param>
+    /// <param name="workspaceFolder">The workspace folder the search has been performed from.</param>
+    /// <returns>The packages found in the package sources.</returns>
+    public async searchPackages(searchQuery: string, workspaceFolder: vscode.WorkspaceFolder | undefined): Promise<Package[]> {
+        const pkgSources: IPackageSource[] = PackageController.getPackageSources(workspaceFolder?.uri, true);
+        if (pkgSources.length === 0) {
+            vscode.window.showErrorMessage('We\'re sorry, but no package sources were found to search for packages. Please review the extension settings and try again.');
+            return Promise.resolve([]);
+        }
+
+        let packages: Package[] = [];
+
+        for (const pkgSource of pkgSources) {
+            const pkgSourceResult = await pkgSource.getPackageByName(searchQuery, false); // TODO: implement pre-release flag
+            
+            for (const pkgMetadata of pkgSourceResult) {
+                const pkg = pkgSource.toPackage(pkgMetadata);
+                packages = this.addOrUpdatePackages(packages, pkg, pkgSource, pkgMetadata);
+            }
+        }
+
+        if (workspaceFolder !== undefined) {
+            for (const pkg of packages) {
+                const workspaceClient = new WorkspaceClient(workspaceFolder);
+                const workspacePkgId = workspaceClient.getPackageId(pkg.Publisher, pkg.Name);
+                const workspacePkgs = await workspaceClient.getPackageById(workspacePkgId);
+                if (workspacePkgs.length > 0) {
+                    pkg.PackageSources.push(workspaceClient);
+
+                    for (const workspacePkg of workspacePkgs) {
+                        const version = new PackageVersion(workspacePkg.version);
+                        const existingVersion = pkg.PackageVersions.find(v => v.Version === version.Version);
+                        if (!existingVersion) {
+                            version.PackageSources.push(workspaceClient);
+                            pkg.PackageVersions.push(version);
+                        } else {
+                            existingVersion.PackageSources.push(workspaceClient);
+                        }
+                    }
+
+                    // Find the highest version in workspacePkg and set dependency.Version
+                    const highestVersion = workspacePkgs.reduce((prev: any, curr: any) => {
+                        return (prev.version > curr.version) ? prev : curr;
+                    });
+                    pkg.Version = new PackageVersion(highestVersion.version);
+                }
+            }
+        }
+        return Promise.resolve(packages);
+    }
+
+    /// <summary>
+    /// Get the latest version of the package.
+    /// </summary>
+    /// <param name="pkg">The package to get the latest version for.</param>
+    /// <returns>The latest version of the package.</returns>
+    public getLatestVersion(pkg: Package): PackageVersion {
+        const latestVersion = pkg.PackageVersions.reduce((prev: any, curr: any) => {
+            return (prev.Version > curr.Version) ? prev : curr;
+        });
+        return latestVersion;
+    }
+
+    /// <summary>
+    /// Adds or updates the packages list with the given package.
+    /// </summary>
+    /// <param name="packages">The packages list.</param>
+    /// <param name="pkg">The package to add or update.</param>
+    /// <param name="pkgSource">The package source the package was found in.</param>
+    /// <param name="pkgMetadata">The package metadata.</param>
+    /// <returns>The updated packages list.</returns>
+    private addOrUpdatePackages(packages: Package[], pkg: Package, pkgSource: IPackageSource, pkgMetadata: any): Package[] {
+        const existingPkg = packages.find(p => p.Id === pkg.Id);
+        if (existingPkg) {
+            this.addOrUpdatePackageSources(existingPkg, pkgSource);
+            this.addOrUpdatePackageVersions(existingPkg, pkgSource, pkgMetadata);
+        } else {
+            this.addOrUpdatePackageSources(pkg, pkgSource);
+            this.addOrUpdatePackageVersions(pkg, pkgSource, pkgMetadata);
+            packages.push(pkg);
+        }
+        return packages;
+    }
+
+    private addOrUpdatePackageSources(pkg: Package, pkgSource: IPackageSource): Package {
+        const existingPkgSource = pkg.PackageSources.find(p => p.Name === pkgSource.Name);
+        if (!existingPkgSource) {
+            pkg.PackageSources.push(pkgSource);
+        }
+        return pkg;
+    }
+
+    /// <summary>
+    /// Adds or updates the package versions of the given package.
+    /// </summary>
+    /// <param name="pkg">The package to add or update the versions for.</param>
+    /// <param name="pkgSource">The package source the package was found in.</param>
+    /// <param name="pkgMetadata">The package metadata.</param>
+    /// <returns>The updated package.</returns>
+    private addOrUpdatePackageVersions(pkg: Package, pkgSource: IPackageSource, pkgMetadata: any): Package {
+        if (!pkgMetadata.versions) {
+            return pkg;
+        }
+        for (const pkgVersion of pkgMetadata.versions) {
+            const version = new PackageVersion(pkgVersion.version);
+            const existingVersion = pkg.PackageVersions.find(v => v.Version === version.Version);
+            if (!existingVersion) {
+                version.PackageSources.push(pkgSource);
+                pkg.PackageVersions.push(version);
+            } else {
+                existingVersion.PackageSources.push(pkgSource);
+            }
+        }
+
+        return pkg;
     }
 }

@@ -6,6 +6,7 @@
  */
 
 import { IPackageSource } from "../IPackageSource";
+import { Package } from "../../Package";
 import { PackageSourceType } from "../PackageSourceType";
 import { NuGetClient } from "./NuGetClient";
 
@@ -26,9 +27,24 @@ export class NuGetOrgPackageSource implements IPackageSource {
     public Name: string = 'NuGet.org';
 
     /// <summary>
+    /// Specifies the description of the package source.
+    /// </summary>
+    public Description: string = 'The NuGet Gallery is the central package repository used by all package authors and consumers.';
+
+    /// <summary>
+    /// Specifies the publisher of the package source. NuGet.org contains packages from multiple publishers.
+    /// </summary>
+    public Publisher: string | undefined = undefined;
+
+    /// <summary>
     /// Specifies the URL of the package source.
     /// </summary>
     public Url: string = 'https://api.nuget.org/v3/index.json';
+
+    /// <summary>
+    /// Specifies the URL of the NuGet.org website.
+    /// </summary>
+    WebsiteUrl: string | undefined = 'https://nuget.org/';
 
     /// <summary>
     /// Specifies the schema package Ids are expected to follow.
@@ -42,6 +58,16 @@ export class NuGetOrgPackageSource implements IPackageSource {
 
     constructor() {
         this.Client = new NuGetClient(this.Url);
+    }
+    
+    /// <summary>
+    /// Converts the package source response to Package.
+    /// </summary>
+    toPackage(data: any): Package {
+        const pkg = this.Client.toPackage(data);
+        pkg.Id = (data.id.split('.')).pop() || '';
+
+        return pkg;
     }
 
     /// <summary>

@@ -10,31 +10,6 @@ import { NuGetVersion } from '../Package/PackageSource/NuGet/NuGetVersion';
 suite('ALGet Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
 
-	test('ALGet initialization test', () => {
-		// TODO: check if ALGetController is initialized correctly
-		// initialize ALGetController
-		//const alGet = new ALGetController(undefined);
-		
-		// // check if package sources are registered
-		// assert.equal(alGet.PackageSources.length, 3, 'Number of registered package sources is not correct');
-		// // check for specific package sources
-		// assert.notEqual(
-		// 	alGet.PackageSources.find((source) => source.Name === 'MS Symbols'),
-		// 	undefined,
-		// 	'MS Symbols package source not found'
-		// );
-		// assert.notEqual(
-		// 	alGet.PackageSources.find((source) => source.Name === 'MS Apps'),
-		// 	undefined,
-		// 	'MS Apps package source not found'
-		// );
-		// assert.notEqual(
-		// 	alGet.PackageSources.find((source) => source.Name === 'AppSource Symbols'),
-		// 	undefined,
-		// 	'AppSource Symbols package source not found'
-		// );
-	});
-
 	test('Find package in NuGet package source test', async () => {
 		// Specify the package name to search for
 		const packageName = '365 business Print Agent';
@@ -150,6 +125,79 @@ suite('ALGet Test Suite', () => {
 		// 	`Custom feed package '${packageName}' not found`
 		// );
 	});
+
+	test('NUSPEC to Package test', async () => {
+		// Specify the package name to search for
+		const packageName = '365 business Print Agent';
+
+		// Create an instance of the AppSourcePackageSource class
+		const appSource = new AppSourcePackageSource();
+
+		// Call the getPackageByName method to search for the package
+		const nuspecMetadata = await appSource.getPackageByName(packageName, false);
+
+		// Check if the package was found
+		let nuspec = null;
+		if (nuspecMetadata.length) {
+			nuspec = nuspecMetadata[0];
+		} else {
+			nuspec = nuspecMetadata;
+		}
+
+		// Check if the expected package was found
+		assert.equal(
+			nuspec.title,
+			packageName,
+			`AppSource package '${packageName}' not found`
+		);
+
+		// Parse NUSPEC to package
+		const pkg = appSource.toPackage(nuspec);
+
+		// Check if the NUSPEC was parsed correctly
+		assert.equal(
+			nuspec.title,
+			packageName,
+			`Package name '${packageName}' not parsed correctly`
+		);
+		assert.equal(
+			'6fb30c19-f5d6-4e4c-b006-18fba4de1898',
+			pkg.Id,
+			`Package ID not parsed correctly`
+		);
+	});
+
+	test('NUSPEC to Package in Custom Feed test', async () => {
+		// Create an instance of the CustomFeed class
+		const customFeed = new CustomFeed(
+			'Custom Feed',
+			'',
+			'',
+			'{id}.{name}'
+		);
+
+		// Mock nuspec data
+		const nuspec = {
+			id: '41560e3b-51bf-4a0e-85a6-87280c6fe580.365businesssanctionscreen', // specify package ID different from default
+			title: '365 business Sanction Screen',
+			summary: '365 business Sanction Screen',
+			description: '365 business Sanction Screen',
+			authors: '365 business development',
+			version: '1.2.3.4',
+			versions: []
+		};
+
+		// Parse NUSPEC to package
+		const pkg = customFeed.toPackage(nuspec);
+
+		// Check if the NUSPEC was parsed correctly
+		assert.equal(
+			pkg.Id,
+			'41560e3b-51bf-4a0e-85a6-87280c6fe580',
+			`Package ID not parsed correctly`
+		);
+	});
+
 
 	test('Test NuGet version range parsing', () => {
 		// Test minimum version, inclusive

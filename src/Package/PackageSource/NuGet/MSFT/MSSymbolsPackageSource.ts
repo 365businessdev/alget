@@ -5,6 +5,7 @@
  * This source code is licensed under the 365 business development license terms.
  */
 import { IPackageSource } from "../../IPackageSource";
+import { Package } from "../../../Package";
 import { PackageSourceType } from "../../PackageSourceType";
 import { NuGetClient } from "../NuGetClient";
 
@@ -25,9 +26,24 @@ export class MSSymbolsPackageSource implements IPackageSource {
     public Name: string = 'MS Symbols';
 
     /// <summary>
+    /// Specifies the description of the package source.
+    /// </summary>
+    public Description: string = 'The MS Symbols feed contains symbols for Microsoft packages for Microsoft Dynamics 365 Business Central.';
+
+    /// <summary>
+    /// Specifies the publisher of the package source. AppSource feed contains packages from multiple publishers.
+    /// </summary>
+    public Publisher: string | undefined = "Microsoft";
+
+    /// <summary>
     /// Specifies the URL of the package source.
     /// </summary>
     public Url: string = 'https://dynamicssmb2.pkgs.visualstudio.com/DynamicsBCPublicFeeds/_packaging/MSSymbols/nuget/v3/index.json';
+
+    /// <summary>
+    /// Specifies the URL of the AppSource artifacts website.
+    /// </summary>
+    WebsiteUrl: string = 'https://dev.azure.com/dynamicssmb2/DynamicsBCPublicFeeds/_artifacts/feed/MSSymbols';
 
     /// <summary>
     /// Specifies the schema package Ids are expected to follow.
@@ -41,6 +57,16 @@ export class MSSymbolsPackageSource implements IPackageSource {
 
     constructor() {
         this.Client = new NuGetClient(this.Url);
+    }
+    
+    /// <summary>
+    /// Converts the package source response to Package.
+    /// </summary>
+    toPackage(data: any): Package {
+        const pkg = this.Client.toPackage(data);
+        pkg.Id = (data.id.split('.')).pop() || '';
+
+        return pkg;
     }
 
     /// <summary>

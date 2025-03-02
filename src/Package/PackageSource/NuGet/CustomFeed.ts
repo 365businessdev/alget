@@ -5,8 +5,10 @@
  * This source code is licensed under the 365 business development license terms.
  */
 import { IPackageSource } from "../IPackageSource";
+import { Package } from "../../Package";
 import { PackageSourceType } from "../PackageSourceType";
 import { NuGetClient } from "./NuGetClient";
+import { OutputChannel } from "../../../Common/OutputChannel";
 
 export class CustomFeed implements IPackageSource {
     /// <summary>
@@ -25,9 +27,24 @@ export class CustomFeed implements IPackageSource {
     public Name: string;
 
     /// <summary>
+    /// Specifies the description of the package source.
+    /// </summary>
+    public Description: string = 'Custom feed, configured by the user.';
+
+    /// <summary>
+    /// Specifies the publisher of the package source.
+    /// </summary>
+    public Publisher: string | undefined = undefined;
+
+    /// <summary>
     /// Specifies the URL of the package source.
     /// </summary>
     public Url: string;
+
+    /// <summary>
+    /// Specifies the URL of the AppSource artifacts website.
+    /// </summary>
+    WebsiteUrl: string | undefined = undefined;
 
     /// <summary>
     /// Specifies the schema package Ids are expected to follow.
@@ -49,6 +66,7 @@ export class CustomFeed implements IPackageSource {
     constructor(name: string, url: string, authenticationHeader?: string, packageIdSchema?: string) {
         this.Name = name;
         this.Url = url;
+        this.WebsiteUrl = this.parseWebsiteUrl(this.Url);
         if (authenticationHeader) {
             this.AuthenticationHeader = authenticationHeader;
         }
@@ -57,6 +75,57 @@ export class CustomFeed implements IPackageSource {
         }
 
         this.Client = new NuGetClient(this.Url, this.AuthenticationHeader);
+    }
+
+    /// <summary>
+    /// Parse the website URL from the feed URL.
+    /// </summary>
+    /// <param name="url">The feed URL.</param>
+    /// <returns>The website URL.</returns
+    /// <remarks>
+    /// Currently only supports Azure DevOps feeds.
+    /// </remarks>
+    private parseWebsiteUrl(url: string): string | undefined{
+        if ((url.indexOf('dev.azure.com') <= 0) && (url.indexOf('visualstudio.com') <= 0)) {
+            OutputChannel.logWarning(`Could not parse website URL from feed URL: '${url}'. Please report this issue.`);
+
+            return undefined;
+        }
+        // Regex to parse the organization, project and feed from the URL.
+        // Example URL: https://pkgs.dev.azure.com/{organization}/{project}/_packaging/{feed}/nuget/v3/index.json
+        // Example URL: https://pkgs.dev.azure.com/{organization}/_packaging/{feed}/nuget/v3/index.json
+        // Example URL: https://{organization}.pkgs.visualstudio.com/{project}/_packaging/{feed}/nuget/v3/index.json
+        const regex = /https:\/\/pkgs\.dev\.azure\.com\/([a-zA-Z0-9]*)(?:\/(.*))?\/_packaging\/([^/]+)\/nuget\/v3\/index\.json|https:\/\/([^/]+)\.pkgs\.visualstudio\.com\/([^/]+)\/_packaging\/([^/]+)\/nuget\/v3\/index\.json/;
+
+        const match = url.match(regex);
+        if (match) {
+            const organization = match[1] || match[4];  // Get the organization from the URL
+            const project = match[2] || match[5] || ""; // Get the project from the URL (optional)
+            const feed = match[3] || match[6];          // Get the feed from the URL
+            console.log(`Parsed URL: '${url}' results in organization: '${organization}', project: '${project}', feed: '${feed}'.`);
+
+            return `https://dev.azure.com/${organization}${project === "" ? "" : `/${project}`}/_artifacts/feed/${feed}`.replace(/\/$/, '');
+        }
+        OutputChannel.logWarning(`Could not parse website URL from feed URL: '${url}'. Please report this issue.`);
+
+        return undefined;
+    }
+    
+    /// <summary>
+    /// Converts the package source response to Package.
+    /// </summary>
+    toPackage(data: any): Package {
+        const pkg = this.Client.toPackage(data);
+
+        // Extract the package ID from the feed response.
+        const regex = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g;
+        try {
+            pkg.Id = regex.exec(data.id)![0];
+        } catch {
+            throw new Error('Failed to extract package ID from the feed response.');
+        }
+
+        return pkg;
     }
 
     /// <summary>

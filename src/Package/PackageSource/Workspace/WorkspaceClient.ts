@@ -10,13 +10,17 @@ import fs = require("fs");
 
 import { ALGetController } from "../../../Controller/ALGetController";
 import { IPackageSource } from "../IPackageSource";
+import { Package } from '../../Package';
 import { PackageSourceType } from "../PackageSourceType";
 import * as glob from 'glob';
 
 export class WorkspaceClient implements IPackageSource {
     Type: PackageSourceType = PackageSourceType.Workspace;
     Name: string = 'Workspace';
+    Description: string = 'Local workspace';
+    Publisher: string | undefined = undefined;
     Url: string | undefined = undefined;
+    WebsiteUrl: string | undefined = undefined;
     PackageIdSchema: string = '{publisher}_{name}_{version}.app';
     AuthenticationHeader: string | undefined = undefined;
 
@@ -26,6 +30,13 @@ export class WorkspaceClient implements IPackageSource {
     constructor(workspace: vscode.WorkspaceFolder) {
         this.Workspace = workspace;
         this.PackageCachePath = this.getALPackageCachePath();
+    }
+
+    /// <summary>
+    /// Converts the package source response to Package.
+    /// </summary>
+    toPackage(): Package {
+        throw new Error("Not supported for local workspaces");
     }
     
     /// <summary>

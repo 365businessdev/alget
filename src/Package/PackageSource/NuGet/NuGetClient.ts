@@ -1,3 +1,6 @@
+import { Package } from "../../Package";
+import { PackageVersion } from '../../PackageVersion';
+
 /**
  * @license
  * 365 business development GmbH
@@ -83,10 +86,12 @@ export class NuGetClient {
             // Download the package manifest
             const url = `${serviceUrl}/${packageId}/${packageVersion}/${packageId}.nuspec`.toLowerCase();
             const response = await this.invokeAPIRequest(url);
+
+            const nugetResponse = await response.text();
             
             // Parse the package manifest
             const parser = new xml2js.Parser();
-            const result = (await parser.parseStringPromise(response.text)).package;
+            const result = (await parser.parseStringPromise(nugetResponse)).package;
 
             return result;
         } catch (error) {
@@ -174,5 +179,22 @@ export class NuGetClient {
             }
         }
         return response;
+    }
+
+    /// <summary>
+    /// Converts the NuGet package metadata (nuspec) to a Package object.
+    /// </summary>
+    /// <param name="nuSpec">The NuGet response, typically the nuspec package metadata.</param>
+    /// <returns>Package object.</returns>
+    /// <seealso cref="https://docs.microsoft.com/en-us/nuget/reference/nuspec"/>
+    public toPackage(nuspec: any): Package {
+        const pkg = new Package('', nuspec.title, nuspec.authors[0]);
+        pkg.Description = nuspec.description;
+        
+        for (const nuGetVersion of nuspec.versions) {
+            pkg.PackageVersions.push(new PackageVersion(nuGetVersion.version));
+        }
+
+        return pkg;
     }
 }

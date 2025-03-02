@@ -89,9 +89,8 @@ export class Package {
     /// Specifies whether a newer version of the package is available in a package source.
     /// </summary>
     public isUpdateAvailable(): boolean {
-        // Not installed, but available in a package source
-        if ((this.Version === undefined) && (this.PackageVersions.length > 0)) {
-            return true;
+        if (!this.isInstalled()) {
+            return false;
         }
 
         // Installed, but a newer version is available
@@ -118,6 +117,64 @@ export class Package {
             }
         }
 
+        return false;
+    }
+
+    /// <summary>
+    /// Specifies whether the package is available as an app.
+    /// </summary>
+    /// <returns>True if the package is available as an app.</returns>
+    public isApp(): boolean {
+        if (this.PackageSources.length === 0) {
+            return false;
+        }
+
+        for (const packageSource of this.PackageSources) {
+            if ((packageSource.PackageIdSchema.includes('.symbols') || packageSource.PackageIdSchema.includes('.runtime'))) {
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Specifies whether the package is available as a symbol package.
+    /// </summary>
+    /// <returns>True if the package is available as a symbol package.</returns>
+    public isSymbol(): boolean {
+        for (const packageSource of this.PackageSources) {
+            if (packageSource.PackageIdSchema.includes('.symbols')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Specifies whether the package is available as a runtime package.
+    /// </summary>
+    /// <returns>True if the package is available as a runtime package.</returns>
+    public isRuntimePackage(): boolean {
+        for (const packageSource of this.PackageSources) {
+            if (packageSource.PackageIdSchema.includes('.runtime')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Specifies whether the package is available as a localized package.
+    /// </summary>
+    /// <returns>True if the package is available as a localized package.</returns>
+    public isLocalizedPackage(): boolean {
+        // TODO: This will not work, at least for MSFT package sources
+        for (const packageSource of this.PackageSources) {
+            if (packageSource.PackageIdSchema.includes('.countryCode')) {
+                return true;
+            }
+        }
         return false;
     }
 
