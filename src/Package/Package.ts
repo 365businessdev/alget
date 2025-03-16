@@ -5,6 +5,7 @@
  * This source code is licensed under the 365 business development license terms.
  */
 import { IPackageSource } from './PackageSource/IPackageSource';
+import { PackageSourceType } from './PackageSource/PackageSourceType';
 import { PackageVersion } from './PackageVersion';
 
 /// <summary>
@@ -81,8 +82,11 @@ export class Package {
     /// <summary>
     /// Specifies whether the package is installed.
     /// </summary>
-    public isInstalled(): boolean {
-        return (this.Version !== undefined);
+    public isInstalled(requiredVersion: PackageVersion | undefined = undefined): boolean {
+        if (requiredVersion === undefined) {
+            return (this.Version !== undefined);
+        }
+        return (this.Version !== undefined && this.Version.Version >= requiredVersion.Version);
     }
 
     /// <summary>
@@ -129,7 +133,7 @@ export class Package {
             return false;
         }
 
-        for (const packageSource of this.PackageSources) {
+        for (const packageSource of this.PackageSources.filter(ps => ps.Type !== PackageSourceType.Workspace)) {
             if ((packageSource.PackageIdSchema.includes('.symbols') || packageSource.PackageIdSchema.includes('.runtime'))) {
                 continue;
             }

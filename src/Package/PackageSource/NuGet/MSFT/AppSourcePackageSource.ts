@@ -43,7 +43,7 @@ export class AppSourcePackageSource implements IPackageSource {
     /// <summary>
     /// Specifies the URL of the AppSource artifacts website.
     /// </summary>
-    WebsiteUrl: string = 'https://dev.azure.com/dynamicssmb2/DynamicsBCPublicFeeds/_artifacts/feed/AppSourceSymbols';
+    public WebsiteUrl: string = 'https://dev.azure.com/dynamicssmb2/DynamicsBCPublicFeeds/_artifacts/feed/AppSourceSymbols';
 
     /// <summary>
     /// Specifies the schema package Ids are expected to follow.
@@ -62,7 +62,7 @@ export class AppSourcePackageSource implements IPackageSource {
     /// <summary>
     /// Converts the package source response to Package.
     /// </summary>
-    toPackage(data: any): Package {
+    public toPackage(data: any): Package {
         const pkg = this.Client.toPackage(data);
         pkg.Id = (data.id.split('.')).pop() || '';
 
@@ -73,14 +73,24 @@ export class AppSourcePackageSource implements IPackageSource {
     /// Check if the contains packages from a specific publisher.
     /// </summary>
     /// <returns>True if the feed contains packages from the specified publisher.</returns>
-    isPublisherFeed(): boolean {
+    public isPublisherFeed(): boolean {
         return true; // AppSource feed contains multiple publishers
+    }
+
+    /// <summary>
+    /// Get the package ID of the AL package.
+    /// </summary>
+    /// <param name="pkg">The package to get the package ID for.</param>
+    /// <param name="countryCode">The country code of the package.</param>
+    /// <returns>The package ID of the AL package.</returns
+    public getPackageIdFromPackage(pkg: Package, countryCode: string): string {
+        return this.getPackageId(pkg.Publisher, pkg.Name, pkg.Id, countryCode);
     }
 
     /// <summary>
     /// Get package ID by publisher, name, id and country code.
     /// </summary>
-    getPackageId(publisher: string, name: string, id: string, countryCode?: string): string {
+    public getPackageId(publisher: string, name: string, id: string, countryCode?: string): string {
         // If the package ID is empty, return an empty string.
         if (id === '00000000-0000-0000-0000-00000000000') {
             return '';
@@ -145,8 +155,8 @@ export class AppSourcePackageSource implements IPackageSource {
     /// Download package by Id.
     /// </summary>
     /// <param name="packageId">The package ID to fetch.</param>
-    /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
-    /// <returns>The package details.</returns>
+    /// <param name="packageVersion">The package version to fetch.</param>
+    /// <returns>The package as a base64 string.</returns>
     async downloadPackageById(packageId: string, packageVersion: string): Promise<string> {
         return await this.Client.downloadPackageById(packageId, packageVersion);
     }

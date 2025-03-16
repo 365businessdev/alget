@@ -47,9 +47,11 @@ export class PackagePanel {
 
         // Reuse the current panel if it exists.
         if (PackagePanel.currentPanel) {
+            PackagePanel.currentPanel.setPackage(pkg);
+
             PackagePanel.currentPanel.panel.title = `ALGet: ${pkg.Name}`;
             PackagePanel.currentPanel.panel.reveal(column);
-            PackagePanel.currentPanel.updatePanel(pkg);
+            PackagePanel.currentPanel.updatePanel();
 
             return PackagePanel.currentPanel;
         }
@@ -95,97 +97,33 @@ export class PackagePanel {
         this.Package = pkg;
 
         // Set the webview's initial html content
-        this.updatePanel(this.Package);
+        this.updatePanel();
 
-        // Listen for when the panel is disposed
-        // This happens when the user closes the panel or when the panel is closed programatically
-        this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-    }
-
-    public setManifest(manifest: any) {
-        this.PackageManifest = manifest;
-    }
-
-    public updateContentArea(tab: string, data: any) {
-        switch (tab) {
-            case "details":
-                data = PackageComponent.getPackageDetailsComponent(data);
-                break;
-            case "dependencies":
-            case "sources":
-                data = "<p>Not implemented yet.</p>";
-                break;
-            case "developer":
-                this.panel.webview.postMessage({
-                    type: "setContentArea",
-                    value: {
-                        tab: tab,
-                        data: this.PackageManifest
-                    }
-                });
-
-
-                this.panel.webview.postMessage({
-                    type: "setContentArea",
-                    value: {
-                        tab: tab,
-                        data: this.Package
-                    }
-                });
-                return;
-        } 
-
-        this.panel.webview.postMessage({
-            type: "setContentArea",
-            value: {
-                tab: tab,
-                data: data
-            }
-        });
-    }
-
-    /// <summary>
-    /// Dispose the panel.
-    /// </summary>
-    public dispose() {
-        PackagePanel.currentPanel = undefined;
-
-        // Clean up our resources
-        this.panel.dispose();
-
-        while (this.disposables.length) {
-            const x = this.disposables.pop();
-            if (x) {
-                x.dispose();
-            }
-        }
-    }
-
-    private async updatePanel(pkg: Package) {
-        const webview = this.panel.webview;
-
-        this.panel.webview.html = this.getHtmlForWebview(webview);
-
-        this.panel.webview.postMessage({
-            type: "showPackage",
-            value: PackageComponent.getPackageHeaderComponent(
-                    pkg, 
-                    this.panel.webview.asWebviewUri(this._extensionUri))
-        });
-
-        webview.onDidReceiveMessage(async (data) => {
+        this.panel.webview.onDidReceiveMessage(async (data) => {
             switch (data.type) {
                 case "onSelectContentArea": {
                     if (!data.value) {
                         return;
                     }
                     if (data.value === "details") {
-                        this.panel.title = `ALGet: ${pkg.Name}`;
+                        this.panel.title = `ALGet: ${this.Package.Name}`;
                     } else {
-                        this.panel.title = `ALGet: ${pkg.Name} - ${data.value.toUpperCase()}`;
+                        this.panel.title = `ALGet: ${this.Package.Name} - ${data.value.toUpperCase()}`;
                     }
 
-                    this.updateContentArea(data.value, pkg);
+                    this.updateContentArea(data.value);
+                    break;
+                }
+                case "onInstall": {
+                    vscode.commands.executeCommand("alget.installPackage", this.Package, data.value.version);
+                    break;
+                }
+                case "onUninstall": {
+                    vscode.commands.executeCommand("alget.uninstallPackage", this.Package);
+                    break;
+                }
+                case "onUpdate": {
+                    vscode.commands.executeCommand("alget.updatePackage", this.Package, data.value.version);
                     break;
                 }
                 case "onInfo": {
@@ -205,7 +143,100 @@ export class PackagePanel {
             }
         });
 
-        this.updateContentArea('details', pkg);
+        // Listen for when the panel is disposed
+        // This happens when the user closes the panel or when the panel is closed programatically
+        this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+    }
+
+    public setManifest(manifest: any) {
+        this.PackageManifest = manifest;
+    }
+
+    public setPackage(pkg: Package) {
+        this.Package = pkg;
+    }
+
+    public updateContentArea(tab: string) {
+        let htmlContent: string = "<p>Oops! Something went wrong.</p><p>Please repot this issue at https://github.com/365businessdev/alget/issues.</p>";
+
+        switch (tab) {
+            case "details":
+                htmlContent = PackageComponent.getPackageDetailsComponent(this.Package);
+                break;
+            case "dependencies":
+                htmlContent = PackageComponent.getPackageDependenciesComponent(this.PackageManifest);
+                break;
+            case "sources":
+                htmlContent = PackageComponent.getPackageSourcesComponent(this.Package);
+                break;
+            case "developer":
+                htmlContent = `<div id="tab-details" class="tab">
+                    <h1>Package Manifest</h1>
+                    <hr>
+                    ${this.jsonToHtml(this.PackageManifest)}
+                    <h1>Package</h1>
+                    <hr>
+                    ${this.jsonToHtml(this.Package)}
+                </div>`;
+                break;
+        } 
+
+        this.panel.webview.postMessage({
+            type: "setContentArea",
+            value: {
+                tab: tab,
+                data: htmlContent
+            }
+        });
+    }
+
+    /// <summary>
+    /// Converts a JSON object to HTML
+    /// </summary>
+    /// <param name="json">The JSON object to convert</param>
+    /// <returns>The HTML representation of the JSON object</returns>
+    private jsonToHtml(json: any) {
+        const jsonString: string = JSON.stringify(json, null, 2); // Pretty print JSON with 2 spaces
+        const escapedJson: string = jsonString.replace(/</g, "&lt;").replace(/>/g, "&gt;"); // Escape HTML tags
+        return `<pre>${escapedJson}</pre>`;
+    }
+
+    /// <summary>
+    /// Dispose the panel.
+    /// </summary>
+    public dispose() {
+        PackagePanel.currentPanel = undefined;
+
+        // Clean up our resources
+        this.panel.dispose();
+
+        while (this.disposables.length) {
+            const x = this.disposables.pop();
+            if (x) {
+                x.dispose();
+            }
+        }
+    }
+
+    public async updatePanel(pkg?: Package) {
+        if (pkg) {
+            this.setPackage(pkg);
+        }
+        const webview = this.panel.webview;
+        this.panel.iconPath = {
+            light: vscode.Uri.joinPath(this._extensionUri, "media", "light", "nuget-icon.svg"),
+            dark: vscode.Uri.joinPath(this._extensionUri, "media", "dark", "nuget-icon.svg")
+        };
+        webview.html = this.getHtmlForWebview(webview);
+
+        webview.postMessage({
+            type: "showPackage",
+            value: PackageComponent.getPackageHeaderComponent(
+                    this.Package, 
+                    webview.asWebviewUri(this._extensionUri))
+        });
+
+        this.updateContentArea('details');
     }
 
     /// <summary>

@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { Package } from "../../Package/Package";
 import { PackageIcon } from "./PackageIcon";
 import { ThemeHelper } from "./ThemeHelper";
+import { PackageSourceType } from "../../Package/PackageSource/PackageSourceType";
 
 export class PackageComponent {
 
@@ -118,8 +119,7 @@ export class PackageComponent {
         let pkgVersions = '';
         let optionSelected: boolean = false;
         pkg.PackageVersions.sort((a, b) => a.Version.localeCompare(b.Version));
-        let highestVersion = pkg.PackageVersions[0].Version;
-
+        
         const pkgVersionsCount = pkg.PackageVersions.length;
         for (let i = 0; i < pkgVersionsCount; i++) {
             const pkgVersion = pkg.PackageVersions[i];
@@ -178,8 +178,6 @@ export class PackageComponent {
     </div>
     <h2>Dependency</h2>
     <pre>
-        app.json
-
         {
             "dependencies": [
                 {
@@ -193,4 +191,59 @@ export class PackageComponent {
     </pre>
 </div>`;
     }
+
+    public static getPackageDependenciesComponent(pkgManifest: any): string {
+        let html = `<div id="tab-details" class="tab">
+            <h1>Package Dependencies</h1>
+            <hr>`;
+        
+        if (pkgManifest.metadata[0].dependencies) {
+            const manifestDependencies = pkgManifest.metadata[0].dependencies[0].dependency;
+            for (const dependency of manifestDependencies) {
+                html += `<h2>${dependency.$.id}</h2>
+    <div id="${dependency.$.id}" class="dependency">
+        <div class="properties">
+            <div>
+                <strong>Package ID:</strong>
+                <span>${dependency.$.id}</span>
+            </div>
+            <div>
+                <strong>Version:</strong>
+                <span>${dependency.$.version}</span>
+            </div>
+        </div>
+    </div>`;
+            }
+        }
+
+        return html;
+    }
+
+    public static getPackageSourcesComponent(pkg: Package): string {
+        let html = `<div id="tab-details" class="tab">
+            <h1>Package Sources</h1>
+            <hr>`;
+
+        const sources = pkg.PackageSources.filter(ps => ps.Type !== PackageSourceType.Workspace);
+        for (const source of sources) {
+            const pkgId = source.getPackageId(pkg.Publisher, pkg.Name, pkg.Id, '' /** TODO: Implement Country Code **/);
+
+            html += `<h2>${source.Name}</h2>
+    <div id="${source.Name}" class="source">
+        <div class="properties">
+            <div>
+                <strong>Source:</strong>
+                <span>${source.Description}</span>
+            </div>
+            ${ source.WebsiteUrl ? `<div>
+                <strong>Website:</strong>
+                <span><a href="${source.WebsiteUrl}/NuGet/${pkgId}" target="_blank">${source.WebsiteUrl}/NuGet/${pkgId}</a></span>
+            </div>` : '' }
+        </div>
+    </div>`;
+        }
+
+        return html;
+    }
+   
 }

@@ -44,7 +44,7 @@ export class CustomFeed implements IPackageSource {
     /// <summary>
     /// Specifies the URL of the AppSource artifacts website.
     /// </summary>
-    WebsiteUrl: string | undefined = undefined;
+    public WebsiteUrl: string | undefined = undefined;
 
     /// <summary>
     /// Specifies the schema package Ids are expected to follow.
@@ -102,7 +102,7 @@ export class CustomFeed implements IPackageSource {
             const organization = match[1] || match[4];  // Get the organization from the URL
             const project = match[2] || match[5] || ""; // Get the project from the URL (optional)
             const feed = match[3] || match[6];          // Get the feed from the URL
-            console.log(`Parsed URL: '${url}' results in organization: '${organization}', project: '${project}', feed: '${feed}'.`);
+            //console.log(`Parsed URL: '${url}' results in organization: '${organization}', project: '${project}', feed: '${feed}'.`);
 
             return `https://dev.azure.com/${organization}${project === "" ? "" : `/${project}`}/_artifacts/feed/${feed}`.replace(/\/$/, '');
         }
@@ -137,9 +137,19 @@ export class CustomFeed implements IPackageSource {
     }
 
     /// <summary>
+    /// Get the package ID of the AL package.
+    /// </summary>
+    /// <param name="pkg">The package to get the package ID for.</param>
+    /// <param name="countryCode">The country code of the package.</param>
+    /// <returns>The package ID of the AL package.</returns
+    public getPackageIdFromPackage(pkg: Package, countryCode: string): string {
+        return this.getPackageId(pkg.Publisher, pkg.Name, pkg.Id, countryCode);
+    }
+
+    /// <summary>
     /// Get package ID by publisher, name, id and country code.
     /// </summary>
-    getPackageId(publisher: string, name: string, id: string, countryCode?: string): string {
+    public getPackageId(publisher: string, name: string, id: string, countryCode?: string): string {
         // If the package ID is empty, return an empty string.
         if (id === '00000000-0000-0000-0000-00000000000') {
             return '';
@@ -161,7 +171,7 @@ export class CustomFeed implements IPackageSource {
     /// <param name="packageName">The package name to fetch.</param>
     /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
     /// <returns>The package details.</returns>
-    getPackageByName(packageName: string, prerelease: boolean): Promise<any> {
+    public getPackageByName(packageName: string, prerelease: boolean): Promise<any> {
         return this.Client.getPackageByName(packageName, prerelease);
     }
 
@@ -171,7 +181,7 @@ export class CustomFeed implements IPackageSource {
     /// <param name="packageId">The package ID to fetch.</param>
     /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
     /// <returns>The package details.</returns>
-    getPackageById(packageId: string, prerelease: boolean): Promise<any> {
+    public getPackageById(packageId: string, prerelease: boolean): Promise<any> {
         return this.Client.getPackageById(packageId, prerelease);
     }
 
@@ -181,7 +191,7 @@ export class CustomFeed implements IPackageSource {
     /// <param name="packageId">The package ID to fetch.</param>
     /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
     /// <returns>The package details.</returns>
-    getPackageManifestById(packageId: string, packageVersion: string): Promise<any> {
+    public getPackageManifestById(packageId: string, packageVersion: string): Promise<any> {
         return this.Client.getPackageManifestById(packageId, packageVersion);
     }
 
@@ -189,9 +199,9 @@ export class CustomFeed implements IPackageSource {
     /// Download package by Id.
     /// </summary>
     /// <param name="packageId">The package ID to fetch.</param>
-    /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
-    /// <returns>The package details.</returns>
-    downloadPackageById(packageId: string, packageVersion: string): Promise<string> {
+    /// <param name="packageVersion">The package version to fetch.</param>
+    /// <returns>The package as a base64 string.</returns>
+    public downloadPackageById(packageId: string, packageVersion: string): Promise<string> {
         return this.Client.downloadPackageById(packageId, packageVersion);
     }
 }

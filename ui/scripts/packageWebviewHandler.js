@@ -13,19 +13,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const tabArea = document.getElementById('tab-area');
                 Array.from(tabArea.children).forEach(tab => {
-                    tab.addEventListener('click', function() {
-                        showTab(tab.id.replace('-tab', ''));
-                    });
+                    tab.removeEventListener('click', handleTabClick); // Remove any existing event listener
+                    tab.addEventListener('click', handleTabClick); // Add the event listener
                 });
+
+                function handleTabClick(event) {
+                    showTab(event.currentTarget.id.replace('-tab', ''));
+                }
                 break;
             case 'setContentArea':
-                if (message.value.tab === 'developer') {
-                    const pre = document.createElement('pre');
-                    pre.innerHTML = jsonToHtml(message.value.data);
-                    document.getElementById('content-area').appendChild(pre);
-                } else {
-                    document.getElementById('content-area').innerHTML = message.value.data;
-                }
+                document.getElementById('content-area').innerHTML = message.value.data;
+                bindEventListeners();
                 break;
         }
 
@@ -39,18 +37,58 @@ document.addEventListener('DOMContentLoaded', function() {
     const previousState = vscode.getState();
     if (previousState) {
         document.body.innerHTML = previousState.body;
+        bindEventListeners();
     }
 });
 
 /// <summary>
-/// Converts a JSON object to HTML
+/// Bind event listeners to interact with the extension
 /// </summary>
-/// <param name="json">The JSON object to convert</param>
-/// <returns>The HTML representation of the JSON object</returns>
-function jsonToHtml(json) {
-    const jsonString = JSON.stringify(json, null, 2); // Pretty print JSON with 2 spaces
-    const escapedJson = jsonString.replace(/</g, "&lt;").replace(/>/g, "&gt;"); // Escape HTML tags
-    return `<pre>${escapedJson}</pre>`;
+function bindEventListeners() {
+    // Add event listener to install button
+    document.querySelectorAll('button#install').forEach(function(installButton) {
+        installButton.removeEventListener('click', handleInstallClick); // Remove any existing event listener
+        installButton.addEventListener('click', handleInstallClick); // Add the event listener
+    });
+
+    // Add event listener to update button
+    document.querySelectorAll('button#update').forEach(function(updateButton) {
+        updateButton.removeEventListener('click', handleUpdateClick); // Remove any existing event listener
+        updateButton.addEventListener('click', handleUpdateClick); // Add the event listener
+    });
+
+    // Add event listener to uninstall button
+    document.querySelectorAll('button#uninstall').forEach(function(uninstallButton) {
+        uninstallButton.removeEventListener('click', handleUninstallClick); // Remove any existing event listener
+        uninstallButton.addEventListener('click', handleUninstallClick); // Add the event listener
+    });
+
+    function handleInstallClick() {
+        const versionSelect = document.querySelector('#version-select');
+        const selectedVersion = versionSelect ? versionSelect.value : undefined;
+        vscode.postMessage({
+            type: 'onInstall',
+            value: {
+                version: selectedVersion
+            }
+        });
+    }
+
+    function handleUpdateClick() {
+        vscode.postMessage({
+            type: 'onInstall',
+            value: {
+                version: undefined
+            }
+        });
+    }
+
+    function handleUninstallClick() {
+        vscode.postMessage({
+            type: 'onUninstall'
+        });
+    }
+
 }
 
 /// <summary>

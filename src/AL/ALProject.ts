@@ -147,18 +147,60 @@ export class ALProject {
         // add dependencies
         if (this.Manifest.dependencies) {
             for (const dependency of this.Manifest.dependencies) {
-                const depPkg = new Package(dependency.id, dependency.name, dependency.publisher);
+                const depPkg = new Package(dependency.id, dependency.name, dependency.publisher, new PackageVersion(dependency.version));
                 this.Package.Dependencies.push(depPkg);
             }
         }
 
         // Add the AL project as a package source
-        // TODO: Add the AL project .alpackages as a package source
         this.Package.PackageSources.push(
             new WorkspaceClient(this.Workspace)
         );
 
         return this.Package;
+    }
+
+    /// <summary>
+    /// Adds or update a dependency to the AL application manifest.
+    /// </summary>
+    /// <param name="pkg">The package to add or update as a dependency.</param>
+    public addOrUpdateDependency(pkg: Package) {
+        if (!this.Package) {
+            return;
+        }
+        this.Package.Dependencies.push(pkg);
+
+        if (!this.Manifest.dependencies) {
+            this.Manifest.dependencies = [];
+        } else {
+            // Remove the dependency if it already exists
+            this.Manifest.dependencies = this.Manifest.dependencies.filter(
+                (dependency: any) => dependency.id !== pkg.Id
+            );
+        }
+
+        this.Manifest.dependencies.push({
+            id: pkg.Id,
+            name: pkg.Name,
+            publisher: pkg.Publisher,
+            version: pkg.Version ? pkg.Version.toString() : pkg.RequiredVersion.toString()
+        });
+        this.writeToFileSync();
+    }
+
+    /// <summary>
+    /// Removes a dependency from the AL application manifest.
+    /// </summary>
+    /// <param name="pkg">The package to remove as a dependency.</param>
+    public removeDependency(pkg: Package) {
+        if (!this.Manifest.dependencies) {
+          return;
+        }
+  
+        this.Manifest.dependencies = this.Manifest.dependencies.filter(
+          (dependency: any) => dependency.id !== pkg.Id
+        );
+        this.writeToFileSync();
     }
 
 }

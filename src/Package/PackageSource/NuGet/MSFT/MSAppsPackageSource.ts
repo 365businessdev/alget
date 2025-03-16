@@ -43,7 +43,7 @@ export class MSAppsPackageSource implements IPackageSource {
     /// <summary>
     /// Specifies the URL of the AppSource artifacts website.
     /// </summary>
-    WebsiteUrl: string = 'https://dev.azure.com/dynamicssmb2/DynamicsBCPublicFeeds/_artifacts/feed/MSApps';
+    public WebsiteUrl: string = 'https://dev.azure.com/dynamicssmb2/DynamicsBCPublicFeeds/_artifacts/feed/MSApps';
 
     /// <summary>
     /// Specifies the schema package Ids are expected to follow.
@@ -62,7 +62,7 @@ export class MSAppsPackageSource implements IPackageSource {
     /// <summary>
     /// Converts the package source response to Package.
     /// </summary>
-    toPackage(data: any): Package {
+    public toPackage(data: any): Package {
         const pkg = this.Client.toPackage(data);
         pkg.Id = (data.id.split('.')).pop() || '';
 
@@ -74,14 +74,24 @@ export class MSAppsPackageSource implements IPackageSource {
     /// </summary>
     /// <param name="publisher">The publisher to check for.</param>
     /// <returns>True if the feed contains packages from the specified publisher.</returns>
-    isPublisherFeed(publisher: string): boolean {
+    public isPublisherFeed(publisher: string): boolean {
         return (publisher.toLowerCase() === 'microsoft');
+    }
+
+    /// <summary>
+    /// Get the package ID of the AL package.
+    /// </summary>
+    /// <param name="pkg">The package to get the package ID for.</param>
+    /// <param name="countryCode">The country code of the package.</param>
+    /// <returns>The package ID of the AL package.</returns
+    public getPackageIdFromPackage(pkg: Package, countryCode: string): string {
+        return this.getPackageId(pkg.Publisher, pkg.Name, pkg.Id, countryCode);
     }
 
     /// <summary>
     /// Get package ID by publisher, name, id and country code.
     /// </summary>
-    getPackageId(publisher: string, name: string, id: string, countryCode?: string): string {
+    public getPackageId(publisher: string, name: string, id: string, countryCode?: string): string {
         let packageId = this.PackageIdSchema
             .replace('{publisher}', this.Client.normalize(publisher))
             .replace('{name}', this.Client.normalize(name))
@@ -114,7 +124,7 @@ export class MSAppsPackageSource implements IPackageSource {
     /// <param name="packageName">The package name to fetch.</param>
     /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
     /// <returns>The package details.</returns>
-    getPackageByName(packageName: string, prerelease: boolean): Promise<any> {
+    public getPackageByName(packageName: string, prerelease: boolean): Promise<any> {
         return this.Client.getPackageByName(packageName, prerelease);
     }
 
@@ -124,7 +134,7 @@ export class MSAppsPackageSource implements IPackageSource {
     /// <param name="packageId">The package ID to fetch.</param>
     /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
     /// <returns>The package details.</returns>
-    getPackageById(packageId: string, prerelease: boolean): Promise<any> {
+    public getPackageById(packageId: string, prerelease: boolean): Promise<any> {
         return this.Client.getPackageById(packageId, prerelease);
     }
 
@@ -134,7 +144,7 @@ export class MSAppsPackageSource implements IPackageSource {
     /// <param name="packageId">The package ID to fetch.</param>
     /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
     /// <returns>The package details.</returns>
-    getPackageManifestById(packageId: string, packageVersion: string): Promise<any> {
+    public getPackageManifestById(packageId: string, packageVersion: string): Promise<any> {
         return this.Client.getPackageManifestById(packageId, packageVersion);
     }
 
@@ -142,9 +152,9 @@ export class MSAppsPackageSource implements IPackageSource {
     /// Download package by Id.
     /// </summary>
     /// <param name="packageId">The package ID to fetch.</param>
-    /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
-    /// <returns>The package details.</returns>
-    downloadPackageById(packageId: string, packageVersion: string): Promise<string> {
+    /// <param name="packageVersion">The package version to fetch.</param>
+    /// <returns>The package as a base64 string.</returns>
+    public downloadPackageById(packageId: string, packageVersion: string): Promise<string> {
         return this.Client.downloadPackageById(packageId, packageVersion);
     }
 }

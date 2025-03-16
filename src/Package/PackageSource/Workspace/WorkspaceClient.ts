@@ -13,6 +13,7 @@ import { IPackageSource } from "../IPackageSource";
 import { Package } from '../../Package';
 import { PackageSourceType } from "../PackageSourceType";
 import * as glob from 'glob';
+import { OutputChannel } from '../../../Common/OutputChannel';
 
 export class WorkspaceClient implements IPackageSource {
     Type: PackageSourceType = PackageSourceType.Workspace;
@@ -35,7 +36,7 @@ export class WorkspaceClient implements IPackageSource {
     /// <summary>
     /// Converts the package source response to Package.
     /// </summary>
-    toPackage(): Package {
+    public toPackage(): Package {
         throw new Error("Not supported for local workspaces");
     }
     
@@ -43,8 +44,30 @@ export class WorkspaceClient implements IPackageSource {
     /// Check if the feed contains packages from a specific publisher.
     /// </summary>
     /// <returns>Always returns true, as a workspace can contain packages from multiple publishers.</returns>
-    isPublisherFeed(): boolean {
+    public isPublisherFeed(): boolean {
         return true;
+    }
+
+    /// <summary>
+    /// Get the package ID of the AL package.
+    /// </summary>
+    /// <param name="pkg">The package to get the package ID for.</param>
+    /// <param name="countryCode">The country code of the package.</param>
+    /// <returns>The package ID of the AL package.</returns
+    public getPackageIdFromPackage(pkg: Package, countryCode: string): string {
+        return this.getPackageId(pkg.Publisher, pkg.Name, pkg.Id, countryCode);
+    }
+
+    /// <summary>
+    /// Get the package ID of the AL package.
+    /// </summary>
+    /// <param name="publisher">The publisher of the package.</param>
+    /// <param name="name">The name of the package.</param>
+    /// <param name="id">The ID of the package.</param>
+    /// <param name="countryCode">The country code of the package.</param>
+    /// <returns>The package ID of the AL package.</returns>
+    public getPackageId(publisher: string, name: string, id: string, countryCode: string): string {
+        return this.getPackageFileName(publisher, name, id).replace('{countryCode}', countryCode);
     }
 
     /// <summary>
@@ -52,23 +75,28 @@ export class WorkspaceClient implements IPackageSource {
     /// </summary>
     /// <param name="publisher">The publisher of the package.</param>
     /// <param name="name">The name of the package.</param>
+    /// <param name="version">The version of the package or undefined.</param>
     /// <returns>The file name of the AL package.</returns>
     /// <remarks>
     /// The file name contains the {version} placeholder, which needs to be replaced with the actual version of the package.
     /// </remarks>
-    getPackageId(publisher: string, name: string): string {
+    public getPackageFileName(publisher: string, name: string, version: string | undefined = undefined): string {
         // Special case for Microsoft Platform package, as the package name is 'System' instead of 'Platform'
         if ((publisher.toLowerCase() === 'microsoft') && (name.toLowerCase() === 'platform')) {
             name = 'System';
         }
         
-        return this.PackageIdSchema
-                .replace('{publisher}', publisher)
-                .replace('{name}', name);
+        let packageId = this.PackageIdSchema
+                            .replace('{publisher}', publisher)
+                            .replace('{name}', name);
+        if (version) {
+            packageId = packageId.replace('{version}', version);
+        }
+        return packageId;
     }
 
     // @ts-ignore
-    getPackageByName(packageName: string, prerelease: boolean): Promise<any> {
+    public getPackageByName(packageName: string, prerelease: boolean): Promise<any> {
         throw new Error("Not supported for local workspaces");
     }
 
@@ -133,13 +161,59 @@ export class WorkspaceClient implements IPackageSource {
     }
 
     // @ts-ignore
-    getPackageManifestById(packageId: string, packageVersion: string): Promise<any> {
+    public getPackageManifestById(packageId: string, packageVersion: string): Promise<any> {
         throw new Error("Not supported for local workspaces");
     }
 
     // @ts-ignore
-    downloadPackageById(packageId: string, packageVersion: string): Promise<string> {
+    public downloadPackageById(packageId: string, packageVersion: string): Promise<string> {
         throw new Error("Not supported for local workspaces");
+    }
+
+    /// <summary>
+    /// Save the AL app file to the package cache.
+    /// </summary>
+    /// <param name="pkg">The package to save.</param>
+    /// <param name="appFile">The AL app file to save as a base64 string.</param>
+    public saveApp(pkg: Package, appFile: string): void {
+        // Create the package cache path if it does not exist
+        const packagePath = this.PackageCachePath[0];
+        if (!fs.existsSync(packagePath)) {
+            fs.mkdirSync(packagePath);
+        }
+
+        // Set app file name
+        let appFileName = this.getPackageFileName(pkg.Publisher, pkg.Name, pkg.Version!.toString());
+        if ((pkg.Publisher === "Microsoft") && (pkg.Name === "Platform")) {
+            appFileName = this.getPackageFileName(pkg.Publisher, 'System', pkg.Version!.toString());
+        }
+
+        // Save the app file to the package cache
+        fs.writeFileSync(
+            path.join(packagePath, appFileName),
+            appFile
+        );
+
+        // Remove other versions of the package
+        this.getPackageById(this.getPackageFileName(pkg.Publisher, pkg.Name)).then((alPackagePkgs) => {
+            for (const alPackagePkg of alPackagePkgs) {
+                if (alPackagePkg.version !== pkg.Version!.toString()) {
+                    OutputChannel.log(`Removing version '${alPackagePkg.version}' of package '${alPackagePkg.fsPath}' from package cache.`);
+                    this.removeApp(alPackagePkg.fsPath);
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Remove the AL app file from the package cache.
+    /// </summary>
+    /// <param name="appFile">The AL app file to remove.</param>
+    public removeApp(appFile: string) {
+        if (!fs.existsSync(appFile)) {
+            return;
+        }
+        fs.unlinkSync(appFile);
     }
 
     /// <summary>
@@ -149,16 +223,28 @@ export class WorkspaceClient implements IPackageSource {
     /// The package cache path is determined by the configuration of the AL Language extension.
     /// If the configuration is not set, the default path is used.
     /// </remarks>
-    getALPackageCachePath(): string[] {
-        const alLanguageExtConfiguration = ALGetController.getExtensionConfiguration(this.Workspace.uri, 'al');
+    public getALPackageCachePath(): string[] {
+        return WorkspaceClient.getALPackageCachePath(this.Workspace);
+    }
+
+    /// <summary>
+    /// Get the path of the AL package cache.
+    /// </summary>
+    /// <param name="workspace">The workspace to get the package cache path for.</param>
+    /// <remarks>
+    /// The package cache path is determined by the configuration of the AL Language extension.
+    /// If the configuration is not set, the default path is used.
+    /// </remarks>
+    public static getALPackageCachePath(workspace: vscode.WorkspaceFolder): string[] {
+        const alLanguageExtConfiguration = ALGetController.getExtensionConfiguration(workspace.uri, 'al');
         if (!alLanguageExtConfiguration) {
-            return [`${this.Workspace.uri.fsPath}/.alpackages`]; // default, just use the .alpackages folder in the workspace
+            return [`${workspace.uri.fsPath}/.alpackages`]; // default, just use the .alpackages folder in the workspace
         }
 
         let packageCachePaths : string[] = [];
         for (const alPackagePath of alLanguageExtConfiguration.get('packageCachePath') as string[]) {
             packageCachePaths.push(
-                path.join(this.Workspace.uri.fsPath, alPackagePath)
+                path.join(workspace.uri.fsPath, alPackagePath)
             );
         }
         return packageCachePaths;

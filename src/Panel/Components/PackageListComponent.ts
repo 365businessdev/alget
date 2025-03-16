@@ -21,7 +21,7 @@ export class PackageListComponent {
 
         let pkgListHtml = "";
         for (const pkg of packages) {
-            pkgListHtml += this.getPackageItemHtml(pkg, extensionUri);
+            pkgListHtml += `<div class="packageItem" id="${pkg.Id}" >${this.getPackageItemHtml(pkg, extensionUri)}</div>`;
         }
         return pkgListHtml;
     }
@@ -32,10 +32,9 @@ export class PackageListComponent {
     /// <param name="pkg">The package to display.</param>
     /// <param name="extensionUri">The URI of the extension.</param>
     /// <returns>HTML for the package item.</returns>
-    private static getPackageItemHtml(pkg: Package, extensionUri: vscode.Uri): string {
-        return `<div class="packageItem" id="${pkg.Id}" >
-            <div class="icon">
-                <img src="${PackageIcon.getPackageIcon(pkg, extensionUri)}" alt="package icon">
+    public static getPackageItemHtml(pkg: Package, extensionUri: vscode.Uri): string {
+        return `<div class="icon">
+                <img id="package-icon" src="${PackageIcon.getPackageIcon(pkg, extensionUri)}" alt="package icon">
             </div>
             <div class="details">
                 <div class="header">
@@ -87,7 +86,6 @@ export class PackageListComponent {
                             `<button id="install">Install</button>`
                     }
                 </div>
-            </div>
-        </div>`;
+            </div>`;
     }
 }

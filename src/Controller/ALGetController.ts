@@ -13,6 +13,9 @@ import { UIController } from './UIController';
 import { ALProject } from "../AL/ALProject";
 import { PackagePanel } from "../Panel/PackagePanel";
 import { Package } from "../Package/Package";
+import { WorkspaceClient } from '../Package/PackageSource/Workspace/WorkspaceClient';
+import { PackageVersion } from '../Package/PackageVersion';
+import { PackageSourceType } from "../Package/PackageSource/PackageSourceType";
 
 /// <summary>
 /// Controller for the ALGet extension.
@@ -71,7 +74,6 @@ export class ALGetController {
         }
 
         // Register the actions
-        this.registerManagePackagesAction();
         this.registerRestorePackagesAction();
         this.registerUpdatePackagesAction();
 
@@ -128,43 +130,6 @@ export class ALGetController {
     }
 
     /// <summary>
-    /// Registers the "Manage Packages" action.
-    /// </summary>
-    private registerManagePackagesAction() {
-        if (this.ExtensionContext === undefined) {
-            return;
-        }
-        this.ExtensionContext.subscriptions.push(
-            vscode.commands.registerCommand(
-                "365businessdev.alget.managePackagesFromCmdPalette",
-                async (uri: vscode.Uri) => {
-                    this.VSCodeWorkspace = new VSCodeWorkspace(uri);
-                    if (this.VSCodeWorkspace === undefined) {
-                        return;
-                    }
-
-                    //PackageSourcePanel.createOrShow(this.ExtensionContext!.extensionUri);
-
-                    // TODO: Implement the package manager
-                    // PackageManager.createOrShow(context.extensionPath, workspaceFolder);
-                }
-            ),
-            vscode.commands.registerCommand(
-                "365businessdev.alget.managePackages",
-                (uri: vscode.Uri) => {
-                    this.VSCodeWorkspace = new VSCodeWorkspace(uri);
-                    if (this.VSCodeWorkspace === undefined) {
-                        return;
-                    }
-                    
-                    // TODO: Implement the package manager
-                    // PackageManager.createOrShow(context.extensionPath, workspaceFolder);
-                }
-            )
-        );
-    }
-
-    /// <summary>
     /// Registers the "Restore Packages" action.
     /// </summary>
     private registerRestorePackagesAction() {
@@ -172,10 +137,41 @@ export class ALGetController {
             return;
         }
         this.ExtensionContext.subscriptions.push(
-            vscode.commands.registerCommand("365businessdev.alget.restorePackages", () => {
-                // TODO: Implement the package restore
-                // RestoreNuGetPackages();
-            })
+            vscode.commands.registerCommand(
+                "365businessdev.alget.restorePackagesFromCmdPalette",
+                () => {
+                    if (!this.PackageController) {
+                        vscode.window.showErrorMessage("ALGet package controller not initialized yet. Please try again later.");
+                        return;
+                    }
+                    this.PackageController.restoreALProjects();
+                }
+            ),
+            vscode.commands.registerCommand(
+                "365businessdev.alget.restorePackages",
+                async (uri: vscode.Uri) => {
+                    this.VSCodeWorkspace = new VSCodeWorkspace(uri);
+                    if (this.VSCodeWorkspace === undefined) {
+                        return;
+                    }
+
+                    if (!this.PackageController) {
+                        vscode.window.showErrorMessage("ALGet package controller not initialized yet. Please try again later.");
+                        return;
+                    }
+
+                    const alProject = this.PackageController.ALProjects.find(
+                        alProject => alProject.Workspace.uri.fsPath === uri.fsPath
+                    );
+
+                    if (!alProject) {
+                        vscode.window.showErrorMessage(`Uri ${uri.fsPath} is not part of an AL project.`);
+                        return;
+                    }
+
+                    this.PackageController.restoreALProject(alProject);
+                }
+            )
         );
     }
 
@@ -187,10 +183,41 @@ export class ALGetController {
             return;
         }
         this.ExtensionContext.subscriptions.push(
-            vscode.commands.registerCommand("365businessdev.alget.updatePackages", () => {
-                // TODO: Implement the package update
-                // UpdateNuGetPackages();
-            })
+            vscode.commands.registerCommand(
+                "365businessdev.alget.updatePackagesFromCmdPalette",
+                () => {
+                    if (!this.PackageController) {
+                        vscode.window.showErrorMessage("ALGet package controller not initialized yet. Please try again later.");
+                        return;
+                    }
+                    this.PackageController.updateALProjects();
+                }
+            ),
+            vscode.commands.registerCommand(
+                "365businessdev.alget.updatePackages",
+                async (uri: vscode.Uri) => {
+                    this.VSCodeWorkspace = new VSCodeWorkspace(uri);
+                    if (this.VSCodeWorkspace === undefined) {
+                        return;
+                    }
+
+                    if (!this.PackageController) {
+                        vscode.window.showErrorMessage("ALGet package controller not initialized yet. Please try again later.");
+                        return;
+                    }
+
+                    const alProject = this.PackageController.ALProjects.find(
+                        alProject => alProject.Workspace.uri.fsPath === uri.fsPath
+                    );
+
+                    if (!alProject) {
+                        vscode.window.showErrorMessage(`Uri ${uri.fsPath} is not part of an AL project.`);
+                        return;
+                    }
+
+                    this.PackageController.updateALProject(alProject);
+                }
+            )
         );
     }
     
@@ -243,7 +270,7 @@ export class ALGetController {
                     // Set package manifest in the panel
                     panel.setManifest(manifest);
                 }).catch(error => {
-                    OutputChannel.logError(error);
+                    OutputChannel.logError(error as string);
                     vscode.window.showErrorMessage(`Unable to load package manifest for package with ID '${pkg.Id}'. Please report this issue.`);
                 });
             }),
@@ -282,6 +309,111 @@ export class ALGetController {
         
                 //     return p;
                 // });
+            }),
+            vscode.commands.registerCommand("alget.installPackage", async (pkg: Package, version?: string) => {
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: `ALGet: Installing '${pkg.Name}'`,
+                    cancellable: false
+                }, async () => {
+                    if (!this.PackageController) {
+                        vscode.window.showErrorMessage("ALGet package controller not initialized. Please report this issue.");
+                        return;
+                    }
+                    const alProject = this.PackageController.ALProjects.find(
+                        alProject => alProject.Workspace.uri.fsPath === this.UIController!.getActiveWorkspaceFolder()!.uri.fsPath
+                    );
+                    if (!alProject) {
+                        vscode.window.showErrorMessage("No AL project found for the active workspace. Please open an AL project and try again.");
+                        return;
+                    }
+
+                    try {
+                        const pkgVersion = pkg.PackageVersions.find(v => v.Version === version);
+                        if ((version) && (!pkgVersion)) {
+                            OutputChannel.logWarning(`Could not find package source for version '${version}'. Falling back to latest version.`);
+                        }
+
+                        const result : { client: WorkspaceClient, version: PackageVersion } = await this.PackageController.downloadApp(
+                            alProject.Workspace,
+                            pkg,
+                            pkgVersion
+                        );
+
+                        const alProjectDependency = alProject.Package!.Dependencies.find(d => d.Id === pkg.Id);
+                        if (alProjectDependency) {
+                            alProjectDependency.PackageSources.push(result.client);
+                            alProjectDependency.PackageVersions.push(result.version);
+                            alProjectDependency.Version = result.version;
+
+                            pkg.Version = alProjectDependency.Version;
+                        } else {
+                            const alProjectDependency = pkg;
+                            alProjectDependency.PackageSources.push(result.client);
+                            alProjectDependency.Version = result.version;
+
+                            pkg = alProjectDependency;
+                        }
+
+                        alProject.addOrUpdateDependency(pkg);
+
+                        if (this.UIController) {
+                            this.UIController.PackageSidebar.updatePackageItem(pkg);
+                            if (PackagePanel.currentPanel) {
+                                PackagePanel.currentPanel.updatePanel(pkg);
+                            }
+                        }
+                        vscode.window.showInformationMessage(`Package '${pkg.Name}' installed successfully.`);
+            
+                        return Promise.resolve();
+                    } catch (error) {
+                        console.error(error);
+                        OutputChannel.logError(error as string);
+                        vscode.window.showErrorMessage(`Unable to install package '${pkg.Name}'. Please report this issue.`);
+                    }
+                });
+            }),
+            vscode.commands.registerCommand("alget.uninstallPackage", async (pkg: Package) => {
+                if (!this.PackageController) {
+                    vscode.window.showErrorMessage("ALGet package controller not initialized. Please report this issue.");
+                    return;
+                }
+                const alProject = this.PackageController.ALProjects.find(
+                    alProject => alProject.Workspace.uri.fsPath === this.UIController!.getActiveWorkspaceFolder()!.uri.fsPath
+                );
+                if (!alProject) {
+                    vscode.window.showErrorMessage("No AL project found for the active workspace. Please open an AL project and try again.");
+                    return;
+                }
+
+                // Remove the symbol files from the package cache
+                const alProjectDependency = alProject.Package!.Dependencies.find(d => d.Id === pkg.Id);
+                if (alProjectDependency && alProjectDependency.PackageSources.some(ps => ps.Type === PackageSourceType.Workspace)) {
+                    const workspaceClient = new WorkspaceClient(alProject.Workspace);
+                    const workspacePkgId = workspaceClient.getPackageFileName(alProjectDependency.Publisher, alProjectDependency.Name);
+                    const alPackagePkgs = await workspaceClient.getPackageById(workspacePkgId);
+                    for (const alPackagePkg of alPackagePkgs) {
+                        OutputChannel.log(`Removing symbol files of package '${alPackagePkg.fsPath}' from package cache.`);
+                        workspaceClient.removeApp(alPackagePkg.fsPath);
+                    }
+                }
+                // Remove the package from the AL projects dependencies
+                alProject.Package!.Dependencies = alProject.Package!.Dependencies.filter(
+                  d => d.Id !== pkg.Id
+                );
+                // Remove the dependency from the AL project manifest
+                alProject.removeDependency(pkg);
+
+                // Reset the package version
+                pkg.Version = undefined;
+                
+                if (this.UIController) {
+                    this.UIController.PackageSidebar.updatePackageItem(pkg);
+                    if (PackagePanel.currentPanel) {
+                        PackagePanel.currentPanel.updatePanel(pkg);
+                    }
+                }
+                vscode.window.showInformationMessage(`Package '${pkg.Name}' uninstalled successfully.`);
             })
         );
     }

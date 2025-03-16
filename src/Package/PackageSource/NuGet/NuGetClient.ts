@@ -1,5 +1,9 @@
+import * as path from 'path';
+import fs = require("fs");
+
 import { Package } from "../../Package";
 import { PackageVersion } from '../../PackageVersion';
+import { OutputChannel } from '../../../Common/OutputChannel';
 
 /**
  * @license
@@ -123,11 +127,51 @@ export class NuGetClient {
             const buffer = await response.arrayBuffer();
             const result = Buffer.from(buffer).toString("base64");
 
-            return result;
+            return this.extractAppFileFromPackage(result);
         } catch (error) {
             console.error('Error downloading package:', error);
             return '';
         }
+    }
+
+    /// <summary>
+    /// Extracts the app file from the NuGet package.
+    /// </summary>
+    /// <param name="nupkgPackage">The NuGet package as a base64 string.</param>
+    /// <returns>The app file as a base64 string.</returns>
+    private async extractAppFileFromPackage(nupkgPackage: string): Promise<string> {
+        // Load the NuGet package
+        const JSZip = require('jszip');
+        const zip = new JSZip();
+        const buffer = await zip.loadAsync(nupkgPackage, { base64: true });
+
+        // Find the app file in the package
+        const packageItem = Object.keys(buffer.files).find((file) => file.endsWith('.app'));
+        if (!packageItem) {
+            throw new Error('No app file found in the package');
+        }
+        const appFile = buffer.files[packageItem];
+
+        // Write the app file to the AL packages directory
+        const content = await appFile.async('nodebuffer');
+        return content;
+    }
+
+    /// <summary>
+    /// Converts the NuGet package metadata (nuspec) to a Package object.
+    /// </summary>
+    /// <param name="nuSpec">The NuGet response, typically the nuspec package metadata.</param>
+    /// <returns>Package object.</returns>
+    /// <seealso cref="https://docs.microsoft.com/en-us/nuget/reference/nuspec"/>
+    public toPackage(nuspec: any): Package {
+        const pkg = new Package('', nuspec.title, nuspec.authors[0]);
+        pkg.Description = nuspec.description;
+        
+        for (const nuGetVersion of nuspec.versions) {
+            pkg.PackageVersions.push(new PackageVersion(nuGetVersion.version));
+        }
+
+        return pkg;
     }
 
     /// <summary>
@@ -165,36 +209,33 @@ export class NuGetClient {
             request.headers.append('Authorization', this.authenticationHeader);
         }
 
-        const response = await fetch(request);
-        if (response.status !== 200) {
-            switch (response.status) {
-                case 401:
-                    throw new Error('Unauthorized attempt to access the resource');
-                case 404:
-                    throw new Error(`Resource not found: ${url}`);
-                case 500:
-                    throw new Error('Internal server error, please try again later');
-                default:
-                    throw new Error(`Failed to fetch URL: ${url}`);
+        try {
+            const response = await fetch(request);
+            if (response.status !== 200) {
+                switch (response.status) {
+                    case 401:
+                        throw new Error('Unauthorized attempt to access the resource');
+                    case 404:
+                        throw new Error(`Resource not found: ${url}`);
+                    case 500:
+                        throw new Error('Internal server error, please try again later');
+                    default:
+                        throw new Error(`Failed to fetch URL: ${url}`);
+                }
             }
+            
+            return response;
+        } catch (error) {
+            console.error('Error fetching URL:', error);
+            OutputChannel.logError(error as string);
+            throw error;
         }
-        return response;
     }
-
+    
     /// <summary>
-    /// Converts the NuGet package metadata (nuspec) to a Package object.
+    /// Removes invalid characters from a file name
     /// </summary>
-    /// <param name="nuSpec">The NuGet response, typically the nuspec package metadata.</param>
-    /// <returns>Package object.</returns>
-    /// <seealso cref="https://docs.microsoft.com/en-us/nuget/reference/nuspec"/>
-    public toPackage(nuspec: any): Package {
-        const pkg = new Package('', nuspec.title, nuspec.authors[0]);
-        pkg.Description = nuspec.description;
-        
-        for (const nuGetVersion of nuspec.versions) {
-            pkg.PackageVersions.push(new PackageVersion(nuGetVersion.version));
-        }
-
-        return pkg;
+    removeInvalidChars(fileName: string): string {
+      return fileName.replace(/[/\\?%*:|"<>]/g, '-');
     }
 }

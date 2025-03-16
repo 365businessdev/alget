@@ -44,7 +44,7 @@ export class NuGetOrgPackageSource implements IPackageSource {
     /// <summary>
     /// Specifies the URL of the NuGet.org website.
     /// </summary>
-    WebsiteUrl: string | undefined = 'https://nuget.org/';
+    public WebsiteUrl: string | undefined = 'https://nuget.org/';
 
     /// <summary>
     /// Specifies the schema package Ids are expected to follow.
@@ -63,7 +63,7 @@ export class NuGetOrgPackageSource implements IPackageSource {
     /// <summary>
     /// Converts the package source response to Package.
     /// </summary>
-    toPackage(data: any): Package {
+    public toPackage(data: any): Package {
         const pkg = this.Client.toPackage(data);
         pkg.Id = (data.id.split('.')).pop() || '';
 
@@ -74,14 +74,24 @@ export class NuGetOrgPackageSource implements IPackageSource {
     /// Check if the contains packages from a specific publisher.
     /// </summary>
     /// <returns>True if the feed contains packages from the specified publisher.</returns>
-    isPublisherFeed(): boolean {
+    public isPublisherFeed(): boolean {
         return true; // NuGet.org contain packages from multiple publishers
+    }
+
+    /// <summary>
+    /// Get the package ID of the AL package.
+    /// </summary>
+    /// <param name="pkg">The package to get the package ID for.</param>
+    /// <param name="countryCode">The country code of the package.</param>
+    /// <returns>The package ID of the AL package.</returns
+    public getPackageIdFromPackage(pkg: Package, countryCode: string): string {
+        return this.getPackageId(pkg.Publisher, pkg.Name, pkg.Id, countryCode);
     }
 
     /// <summary>
     /// Get package ID by publisher, name, id and country code.
     /// </summary>
-    getPackageId(publisher: string, name: string, id: string, countryCode?: string): string {
+    public getPackageId(publisher: string, name: string, id: string, countryCode?: string): string {
         let packageId = this.PackageIdSchema
             .replace('{publisher}', publisher)
             .replace('{name}', name)
@@ -113,7 +123,7 @@ export class NuGetOrgPackageSource implements IPackageSource {
     /// <param name="packageName">The package name to fetch.</param>
     /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
     /// <returns>The package details.</returns>
-    async getPackageByName(packageName: string, prerelease: boolean): Promise<any> {
+    public async getPackageByName(packageName: string, prerelease: boolean): Promise<any> {
         return await this.Client.getPackageByName(packageName, prerelease);
     }
 
@@ -123,7 +133,7 @@ export class NuGetOrgPackageSource implements IPackageSource {
     /// <param name="packageId">The package ID to fetch.</param>
     /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
     /// <returns>The package details.</returns>
-    async getPackageById(packageId: string, prerelease: boolean): Promise<any> {
+    public async getPackageById(packageId: string, prerelease: boolean): Promise<any> {
         return await this.Client.getPackageById(packageId, prerelease);
     }
 
@@ -133,7 +143,7 @@ export class NuGetOrgPackageSource implements IPackageSource {
     /// <param name="packageId">The package ID to fetch.</param>
     /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
     /// <returns>The package details.</returns>
-    async getPackageManifestById(packageId: string, packageVersion: string): Promise<any> {
+    public async getPackageManifestById(packageId: string, packageVersion: string): Promise<any> {
         return await this.Client.getPackageManifestById(packageId, packageVersion);
     }
 
@@ -141,9 +151,9 @@ export class NuGetOrgPackageSource implements IPackageSource {
     /// Download package by Id.
     /// </summary>
     /// <param name="packageId">The package ID to fetch.</param>
-    /// <param name="prerelease">Specifies if prerelease packages should be included.</param>
-    /// <returns>The package details.</returns>
-    async downloadPackageById(packageId: string, packageVersion: string): Promise<string> {
+    /// <param name="packageVersion">The package version to fetch.</param>
+    /// <returns>The package as a base64 string.</returns>
+    public async downloadPackageById(packageId: string, packageVersion: string): Promise<string> {
         return await this.Client.downloadPackageById(packageId, packageVersion);
     }
 }

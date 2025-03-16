@@ -44,6 +44,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     searchQuery: document.querySelector('input[name="q"]').value
                 });
                 break;
+            case 'onPackageUpdated':
+                const packageId = message.value.packageId;
+                const packageItem = message.value.packageItem;
+
+                this.document.getElementById(packageId).innerHTML = packageItem;
+                bindEventListeners();
+
+                break;
         }
     });
 
@@ -93,12 +101,27 @@ function setPackageList(packageList) {
 /// Bind event listeners to interact with the extension
 /// </summary>
 function bindEventListeners() {
+    // Remove existing event listeners to avoid duplication
+    document.querySelectorAll('.packageItem').forEach(function(packageItem) {
+        const newPackageItem = packageItem.cloneNode(true);
+        packageItem.parentNode.replaceChild(newPackageItem, packageItem);
+    });
+
     // Add event listener to select package
     document.querySelectorAll('.packageItem').forEach(function(packageItem) {
-        packageItem.addEventListener('click', function() {
+        packageItem.addEventListener('click', function(event) {
+            // Check if the click event originated from a button or image inside the packageItem
+            if (
+                (event.target.tagName.toLowerCase() === 'button') || 
+                ((event.target.tagName.toLowerCase() === 'img') && (event.target.getAttribute('id') !== "package-icon"))
+            ) {
+                return; // Do not trigger the event if the click event originated from a button or image
+            }
             vscode.postMessage({
                 type: 'onSelectPackage',
-                value: packageItem.getAttribute('id')
+                value: {
+                    packageId: packageItem.getAttribute('id')
+                }
             });
         });
     });
@@ -108,35 +131,47 @@ function bindEventListeners() {
         gearIcon.addEventListener('click', function(event) {
             const packageItem = event.target.closest('.packageItem');
             if (packageItem) {
+                event.preventDefault();
+                
                 vscode.postMessage({
                     type: 'onSettings',
-                    value: packageItem.getAttribute('id')
+                    value: {
+                        packageId: packageItem.getAttribute('id')
+                    }
                 });
             }
         });
     });
 
     // Add event listener to install button
-    document.querySelectorAll('.packageItem button[install]').forEach(function(installButton) {
+    document.querySelectorAll('.packageItem button#install').forEach(function(installButton) {
         installButton.addEventListener('click', function(event) {
             const packageItem = event.target.closest('.packageItem');
             if (packageItem) {
+                event.preventDefault();
+                
                 vscode.postMessage({
                     type: 'onInstall',
-                    value: packageItem.getAttribute('id')
+                    value: {
+                        packageId: packageItem.getAttribute('id')
+                    }
                 });
             }
         });
     });
 
     // Add event listener to update button
-    document.querySelectorAll('.packageItem button[update]').forEach(function(updateButton) {
+    document.querySelectorAll('.packageItem button#update').forEach(function(updateButton) {
         updateButton.addEventListener('click', function(event) {
             const packageItem = event.target.closest('.packageItem');
             if (packageItem) {
+                event.preventDefault();
+
                 vscode.postMessage({
                     type: 'onUpdate',
-                    value: packageItem.getAttribute('id')
+                    value:  {
+                        packageId: packageItem.getAttribute('id')
+                    }
                 });
             }
         });

@@ -37,10 +37,13 @@
     "app"
   ],
   "activationEvents": [
+		"onLanguage:al",
+		"onLanguage:alapp",
+		"workspaceContains:app.json",
     "onView:alget-sidebar-view"
   ],
   "main": "./dist/extension.js",
-  "contributes": {
+  "contributes": {    
     "viewsContainers": {
       "activitybar": [
         {
@@ -77,17 +80,18 @@
     },
     "commands": [
       {
-        "command": "365businessdev.alget.managePackages",
-        "title": "Manage Packages"
-      },
-      {
-        "command": "365businessdev.alget.managePackagesFromCmdPalette",
-        "title": "Manage Packages",
+        "command": "365businessdev.alget.restorePackagesFromCmdPalette",
+        "title": "Restore NuGet Packages",
         "category": "ALGet"
       },
       {
         "command": "365businessdev.alget.restorePackages",
         "title": "Restore NuGet Packages",
+        "category": "ALGet"
+      },
+      {
+        "command": "365businessdev.alget.updatePackagesFromCmdPalette",
+        "title": "Update NuGet Packages",
         "category": "ALGet"
       },
       {
@@ -99,17 +103,29 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "365businessdev.alget.managePackagesFromCmdPalette"
+          "command": "365businessdev.alget.restorePackagesFromCmdPalette"
         },
         {
-          "command": "365businessdev.alget.managePackages",
+          "command": "365businessdev.alget.restorePackages",
+          "when": "false"
+        },
+        {
+          "command": "365businessdev.alget.updatePackagesFromCmdPalette"
+        },
+        {
+          "command": "365businessdev.alget.updatePackages",
           "when": "false"
         }
       ],
       "explorer/context": [
         {
           "when": "resourceFilename == app.json",
-          "command": "365businessdev.alget.managePackages",
+          "command": "365businessdev.alget.restorePackages",
+          "group": "navigation"
+        },
+        {
+          "when": "resourceFilename == app.json",
+          "command": "365businessdev.alget.updatePackages",
           "group": "navigation"
         }
       ]

@@ -56,6 +56,7 @@ export interface IPackageSource {
 
     isPublisherFeed(publisher: string | undefined): boolean;
     getPackageId(publisher: string, name: string, id: string, countryCode: string): string;
+    getPackageIdFromPackage(pkg: Package, countryCode: string): string;
     getPackageByName(packageName: string, prerelease: boolean): Promise<any>;
     getPackageById(packageId: string, prerelease: boolean): Promise<any>;
     getPackageManifestById(packageId: string, packageVersion: string): Promise<any>;

@@ -155,7 +155,7 @@ export class PackageController {
 
                 // check if the package exists in .alpackages already
                 const workspaceClient = new WorkspaceClient(alProject.Workspace);
-                const workspacePkgId = workspaceClient.getPackageId(dependency.Publisher, dependency.Name);
+                const workspacePkgId = workspaceClient.getPackageFileName(dependency.Publisher, dependency.Name);
 
                 const workspacePkgs = await workspaceClient.getPackageById(workspacePkgId);
                 if (workspacePkgs.length > 0) {
@@ -279,6 +279,13 @@ export class PackageController {
         return Promise.resolve(packages[0]);
     }
 
+    /// <summary>
+    /// Get the package manifest, e.g. NuGet .nuspec file, by ID.
+    /// </summary>
+    /// <param name="packageSource">The package source to get the package manifest from.</param>
+    /// <param name="packageId">The package ID to fetch.</param>
+    /// <param name="packageVersion">The package version to fetch.</param>
+    /// <returns>The package manifest.</returns>
     public async getPackageManifestById(packageSource: IPackageSource, packageId: string, packageVersion: PackageVersion): Promise<any> {
         OutputChannel.log(`Getting package manifest for package '${packageId}' version '${packageVersion}' from package source '${packageSource.Name}' ...`);
         const pkgManifest = await packageSource.getPackageManifestById(packageId, packageVersion.toString());
@@ -290,7 +297,16 @@ export class PackageController {
         return Promise.resolve(pkgManifest);
     }
 
-    public async downloadPackageById(packageSource: IPackageSource, packageId: string, packageVersion: PackageVersion): Promise<string> {
+    /// <summary>
+    /// Downloads the package by ID.
+    /// </summary>
+    /// <param name="packageSource">The package source to download the package from.</param>
+    /// <param name="pkg">The package to download.</param>
+    /// <param name="packageVersion">The package version to fetch.</param>
+    /// <returns>The package as a base64 string.</returns>
+    public async downloadPackageById(packageSource: IPackageSource, pkg: Package, packageVersion: PackageVersion): Promise<string> {
+        const packageId = packageSource.getPackageId(pkg.Publisher, pkg.Name, pkg.Id, ''); // TODO: Add country code
+
         OutputChannel.log(`Downloading package '${packageId}' version '${packageVersion}' from package source '${packageSource.Name}' ...`);
         const packageFile = await packageSource.downloadPackageById(packageId, packageVersion.toString());
         OutputChannel.log(`Package '${packageId}' version '${packageVersion}' from package source '${packageSource.Name}' downloaded.`);
@@ -325,7 +341,7 @@ export class PackageController {
         if (workspaceFolder !== undefined) {
             for (const pkg of packages) {
                 const workspaceClient = new WorkspaceClient(workspaceFolder);
-                const workspacePkgId = workspaceClient.getPackageId(pkg.Publisher, pkg.Name);
+                const workspacePkgId = workspaceClient.getPackageFileName(pkg.Publisher, pkg.Name);
                 const workspacePkgs = await workspaceClient.getPackageById(workspacePkgId);
                 if (workspacePkgs.length > 0) {
                     pkg.PackageSources.push(workspaceClient);
@@ -350,6 +366,245 @@ export class PackageController {
             }
         }
         return Promise.resolve(packages);
+    }
+
+    /// <summary>
+    /// Restore package dependencies in the AL projects.
+    /// </summary>
+    public async restoreALProjects() {
+        const quickPickSelection = this.getQuickPickSelectionALProjects();
+        switch (quickPickSelection.length) { 
+            case 0:
+                OutputChannel.logWarning('No AL projects found to restore dependencies for.');
+                vscode.window.showErrorMessage('We\'re sorry, but no AL projects were found to restore dependencies for. Please open an AL project and try again.');
+                return;
+            case 1:
+                await this.restoreALProject(quickPickSelection[0].target);
+                return;
+            default:
+                const selection = await vscode.window.showQuickPick(
+                    quickPickSelection,
+                    {
+                        placeHolder: "Select the AL project to restore dependencies for."
+                    }
+                );
+                if (!selection) {
+                    return;
+                }
+                await this.restoreALProject(selection.target);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Restore package dependencies in the AL project.
+    /// </summary>
+    /// <param name="alProject">The AL project to restore the dependencies for.</param>
+    public async restoreALProject(alProject: ALProject) {
+        if (alProject.Package === undefined) {
+            OutputChannel.logError(`AL project '${alProject.Workspace.name}' is not an AL project.`);
+            vscode.window.showErrorMessage(`We're sorry, but the workspace folder '${alProject.Workspace.name}' is not an AL project. Please open an AL project and try again.`);
+            return;
+        }
+
+        // Restore AL project
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `ALGet: Restore AL project ${alProject.Package.Name}`,
+            cancellable: false
+        }, () => {
+			const p = new Promise<void>(async resolve => {
+                if (alProject.Package === undefined) {
+                    resolve();
+                    return;
+                }
+                OutputChannel.log(`Restoring AL project '${alProject.Package.Name}' ...`);
+        
+                // Check which dependencies are not already installed
+                const dependencies: Package[] = [];
+                for (const dependency of alProject.Package.Dependencies) {
+                    if (!dependency.isInstalled(dependency.RequiredVersion)) {
+                        dependencies.push(dependency);
+                    } else {
+                        OutputChannel.log(`${dependency.Name} in version ${dependency.Version} is already installed.`);
+                    }
+                }
+                if (dependencies.length === 0) {
+                    OutputChannel.log(`AL project '${alProject.Package.Name}' already restored. Use 'ALGet: Update NuGet Packages' to update dependencies instead.`);
+                    resolve();
+                    return;
+                }
+        
+                // Restore missing dependencies
+                resolve(await this.restoreALProjectDependencies(alProject, dependencies));
+
+                OutputChannel.log(`AL project '${alProject.Package.Name}' restored.`);
+			});
+
+			return p;
+        });
+    }
+
+    /// <summary>
+    /// Restore the AL project dependencies.
+    /// </summary>
+    /// <param name="alProject">The AL project to restore the dependencies for.</param>
+    /// <param name="dependencies">The dependencies to restore.</param>
+    private async restoreALProjectDependencies(alProject: ALProject, dependencies: Package[]) {
+        await Promise.all(dependencies.map(async (dependency) => {
+            dependency.Version = dependency.PackageVersions.find(v => v.Version >= dependency.RequiredVersion.Version);
+
+            if (!dependency.Version) {
+                OutputChannel.logError(`No suitable version found for ${dependency.Name}. Required version: ${dependency.RequiredVersion.Version}`);
+                return;
+            }
+
+            const appFile = await this.downloadPackageById(
+                dependency.Version.PackageSources[0], 
+                dependency,
+                dependency.Version);
+            
+            const workspaceClient = new WorkspaceClient(alProject.Workspace);
+            workspaceClient.saveApp(dependency, appFile);
+
+            const alProjectDependency = alProject.Package!.Dependencies.find(d => d.Id === dependency.Id);
+            if (alProjectDependency) {
+                alProjectDependency.PackageSources.push(workspaceClient);
+                alProjectDependency.PackageVersions.push(dependency.Version);
+                alProjectDependency.Version = dependency.Version;
+            }
+        }));
+    }
+
+    /// <summary>
+    /// Update package dependencies in the AL projects.
+    /// </summary>
+    public async updateALProjects() {
+        const quickPickSelection = this.getQuickPickSelectionALProjects();
+        switch (quickPickSelection.length) {
+            case 0:
+                OutputChannel.logWarning('No AL projects found to update dependencies for.');
+                vscode.window.showErrorMessage('We\'re sorry, but no AL projects were found to update dependencies for. Please open an AL project and try again.');
+                return;
+            case 1:
+                await this.updateALProject(quickPickSelection[0].target);
+                return;
+            default:
+                const selection = await vscode.window.showQuickPick(
+                    quickPickSelection,
+                    {
+                        placeHolder: "Select the AL project to update dependencies for."
+                    }
+                );
+                if (!selection) {
+                    return;
+                }
+                await this.updateALProject(selection.target);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Update package dependencies in the AL project.
+    /// </summary>
+    /// <param name="alProject">The AL project to update the dependencies for.</param>
+    public async updateALProject(alProject: ALProject) {
+        if (alProject.Package === undefined) {
+            OutputChannel.logError(`AL project '${alProject.Workspace.name}' is not an AL project.`);
+            vscode.window.showErrorMessage(`We're sorry, but the workspace folder '${alProject.Workspace.name}' is not an AL project. Please open an AL project and try again.`);
+            return;
+        }
+
+        // Update AL project
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `ALGet: Update AL project ${alProject.Package.Name}`,
+            cancellable: false
+        }, () => {
+            const p = new Promise<void>(async resolve => {
+                if (alProject.Package === undefined) {
+                    resolve();
+                    return;
+                }
+                OutputChannel.log(`Updating AL project '${alProject.Package.Name}' ...`);
+        
+                // Check which dependencies have updates available
+                const dependencies: Package[] = [];
+                for (const dependency of alProject.Package.Dependencies) {
+                    if (dependency.isUpdateAvailable()) {
+                        dependencies.push(dependency);
+                    }
+                }
+                if (dependencies.length === 0) {
+                    OutputChannel.log(`AL project '${alProject.Package.Name}' already updated.`);
+                    resolve();
+                    return;
+                }
+
+                // Update dependencies
+                resolve(await this.updateALProjectDependencies(alProject, dependencies));
+
+                OutputChannel.log(`AL project '${alProject.Package.Name}' updated.`);
+            });
+
+            return p;
+        });
+    }
+
+    /// <summary>
+    /// Update the AL project dependencies to latest versions.
+    /// </summary>
+    /// <param name="alProject">The AL project to update the dependencies for.</param>
+    /// <param name="dependencies">The dependencies to update.</param>
+    private async updateALProjectDependencies(alProject: ALProject, dependencies: Package[]) {
+        await Promise.all(dependencies.map(async (dependency) => {
+            this.downloadApp(alProject.Workspace, dependency).then(({ client, version }) => {
+                const alProjectDependency = alProject.Package!.Dependencies.find(d => d.Id === dependency.Id);
+                if (alProjectDependency) {
+                    alProjectDependency.PackageSources.push(client);
+                    alProjectDependency.PackageVersions.push(version);
+                    alProjectDependency.Version = version;
+                }
+            });
+        }));
+    }
+
+    /// <summary>
+    /// Download app file for the given package.
+    /// </summary>
+    /// <param name="workspace">The workspace folder to download the app to.</param>
+    /// <param name="pkg">Package to download.</param>
+    /// <param name="pkgVersion">The package version to update to. Omit this parameter to update to the latest version.</param>
+    /// <returns>Workspace client reference to app file and actual version.</returns>
+    public async downloadApp(workspace: vscode.WorkspaceFolder, pkg: Package, pkgVersion?: PackageVersion): Promise<{ client: WorkspaceClient, version: PackageVersion }> {
+        if (pkgVersion === undefined) {
+            pkgVersion = this.getLatestVersion(pkg);
+        }
+        if (pkgVersion === pkg.Version) {
+            OutputChannel.log(`${pkg.Name} in version ${pkg.Version} is already up-to-date.`);
+            return Promise.resolve(
+                {
+                    client: new WorkspaceClient(workspace),
+                    version: pkgVersion
+                }
+            );
+        }
+        pkg.Version = pkgVersion;
+
+        const appFile = await this.downloadPackageById(
+            pkgVersion.PackageSources[0], 
+            pkg,
+            pkgVersion);
+
+        const workspaceClient = new WorkspaceClient(workspace);
+        workspaceClient.saveApp(pkg, appFile);
+
+        return Promise.resolve(
+            {
+                client: workspaceClient,
+                version: pkgVersion
+            }
+        );
     }
 
     /// <summary>
@@ -416,5 +671,24 @@ export class PackageController {
         }
 
         return pkg;
+    }
+
+    /// <summary>
+    /// Get the AL projects for the quick pick selection.
+    /// </summary>
+    /// <returns>The AL projects for the quick pick selection.</returns>
+    private getQuickPickSelectionALProjects(): { label: string, description: string, target: ALProject }[] {
+        const quickPickSelection = [];
+        for (const alProject of this.ALProjects) {
+            if (alProject.Package) {
+                quickPickSelection.push({
+                    label: alProject.Workspace.name,
+                    description: alProject.Package.Name,
+                    target: alProject
+                });
+            }
+        }
+
+        return quickPickSelection;
     }
 }

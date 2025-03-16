@@ -51,10 +51,32 @@ export class PackageSidebar implements vscode.WebviewViewProvider {
 
     webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.type) {
-        case "onRestoreState": {
-          if (this.SearchQuery === data.value) {
-            this.restoreState(this.SearchQuery, this.Packages);
+        case "onInstall": {
+          if (!data.value) {
+            return;
           }
+
+          const pkg = this.Packages.find((pkg) => pkg.Id === data.value.packageId);
+          if (!pkg) {
+            vscode.window.showErrorMessage(`Unable to find package with ID '${data.value.packageId}'. Please report this issue.`);
+            return;
+          }
+
+          vscode.commands.executeCommand("alget.installPackage", pkg, data.value.version);
+          break;
+        }
+        case "onUpdate": {
+          if (!data.value) {
+            return;
+          }
+
+          const pkg = this.Packages.find((pkg) => pkg.Id === data.value.packageId);
+          if (!pkg) {
+            vscode.window.showErrorMessage(`Unable to find package with ID '${data.value.packageId}'. Please report this issue.`);
+            return;
+          }
+
+          vscode.commands.executeCommand("alget.updatePackage", pkg, data.value.version);
           break;
         }
         case "onSearchPackages": {
@@ -70,13 +92,19 @@ export class PackageSidebar implements vscode.WebviewViewProvider {
             return;
           }
 
-          const pkg = this.Packages.find((pkg) => pkg.Id === data.value);
+          const pkg = this.Packages.find((pkg) => pkg.Id === data.value.packageId);
           if (!pkg) {
-            vscode.window.showErrorMessage(`Unable to find package with ID '${data.value}'. Please report this issue.`);
+            vscode.window.showErrorMessage(`Unable to find package with ID '${data.value.packageId}'. Please report this issue.`);
             return;
           }
 
           vscode.commands.executeCommand("alget.selectPackage", pkg);
+          break;
+        }
+        case "onRestoreState": {
+          if (this.SearchQuery === data.value) {
+            this.restoreState(this.SearchQuery, this.Packages);
+          }
           break;
         }
         case "onInfo": {
@@ -127,9 +155,30 @@ export class PackageSidebar implements vscode.WebviewViewProvider {
 
     this.View.webview.postMessage({
       type: "onPackagesLoaded",
-      value: PackageListComponent.getPackageListHtml(
-                this.Packages, 
-                this.View.webview.asWebviewUri(this._extensionUri))
+      value: PackageListComponent.getPackageListHtml(this.Packages, this.View.webview.asWebviewUri(this._extensionUri))
+    });
+  }
+
+  public updatePackageItem(pkg: Package) {
+    if (!this.View) {
+      return; // TODO: Implement error handling
+    }
+
+    // Update the package item
+    const existingPkgIndex = this.Packages.findIndex((p) => p.Id === pkg.Id);
+    if (existingPkgIndex === -1) {
+      this.Packages.push(pkg);
+    } else {
+      this.Packages[existingPkgIndex] = pkg;
+    }
+
+    // Update UI
+    this.View.webview.postMessage({
+      type: "onPackageUpdated",
+      value: {
+        packageId: pkg.Id,
+        packageItem: PackageListComponent.getPackageItemHtml(pkg, this.View.webview.asWebviewUri(this._extensionUri))
+      }
     });
   }
 
